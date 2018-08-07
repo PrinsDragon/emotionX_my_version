@@ -14,7 +14,7 @@ print("GPU available: ", torch.cuda.is_available())
 # parameters
 # dataset = "EmotionPush"
 dataset = "Merge"
-mode = 8
+mode = 4
 print("Now running dataset = {}, mode = {}".format(dataset, mode))
 
 train_dir = "./data/{}_Proc/{}_seq_train.json".format(dataset, dataset.lower())
