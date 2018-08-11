@@ -2,15 +2,65 @@ import numpy as np
 
 import torch
 import torch.nn as nn
+import torch.nn.init as init
 
 # Modules
+class Linear(nn.Module):
+    ''' Simple Linear layer with xavier init '''
+    def __init__(self, d_in, d_out, bias=True):
+        super(Linear, self).__init__()
+        self.linear = nn.Linear(d_in, d_out, bias=bias)
+        init.xavier_normal(self.linear.weight)
+
+    def forward(self, x):
+        return self.linear(x)
+
+class Bottle(nn.Module):
+    ''' Perform the reshape routine before and after an operation '''
+
+    def forward(self, input):
+        if len(input.size()) <= 2:
+            return super(Bottle, self).forward(input)
+        size = input.size()[:2]
+        out = super(Bottle, self).forward(input.view(size[0]*size[1], -1))
+        return out.view(size[0], size[1], -1)
+
+class BottleLinear(Bottle, Linear):
+    ''' Perform the reshape routine before and after a linear projection '''
+    pass
+
+class BottleSoftmax(Bottle, nn.Softmax):
+    ''' Perform the reshape routine before and after a softmax operation'''
+    pass
+
+class LayerNormalization(nn.Module):
+    ''' Layer normalization module '''
+
+    def __init__(self, d_hid, eps=1e-3):
+        super(LayerNormalization, self).__init__()
+
+        self.eps = eps
+        self.a_2 = nn.Parameter(torch.ones(d_hid), requires_grad=True)
+        self.b_2 = nn.Parameter(torch.zeros(d_hid), requires_grad=True)
+
+    def forward(self, z):
+        if z.size(1) == 1:
+            return z
+
+        mu = torch.mean(z, keepdim=True, dim=-1)
+        sigma = torch.std(z, keepdim=True, dim=-1)
+        ln_out = (z - mu.expand_as(z)) / (sigma.expand_as(z) + self.eps)
+        ln_out = ln_out * self.a_2.expand_as(ln_out) + self.b_2.expand_as(ln_out)
+
+        return ln_out
+
 class ScaledDotProductAttention(nn.Module):
 
     def __init__(self, model_dim, attention_dropout=0.1):
         super(ScaledDotProductAttention, self).__init__()
         self.scale_constant = np.power(model_dim, 0.5)
         self.dropout_layer = nn.Dropout(attention_dropout)
-        self.softmax_layer = nn.Softmax()
+        self.softmax_layer = BottleSoftmax()
 
     def forward(self, q, k, v, mask):
         attention_matrix = torch.bmm(q, k.transpose(1, 2)) / self.scale_constant
@@ -58,9 +108,13 @@ class MultiHeadAttentionUnit(nn.Module):
 
         self.attention_layer = ScaledDotProductAttention(model_dim)
         self.norm_layer = LayerNormalization(model_dim)
-        self.linear_layer = nn.Linear(head_num * v_dim, model_dim, bias=True)
+        self.linear_layer = BottleLinear(head_num*v_dim, model_dim) # nn.Linear(head_num * v_dim, model_dim, bias=True)
 
         self.dropout_layer = nn.Dropout(dropout)
+
+        init.xavier_normal(self.w_qs)
+        init.xavier_normal(self.w_ks)
+        init.xavier_normal(self.w_vs)
 
     def forward(self, q, k, v, attention_mask):
         k_dim = self.k_dim
@@ -84,7 +138,9 @@ class MultiHeadAttentionUnit(nn.Module):
         attention_output = self.attention_layer(multi_q, multi_k, multi_v,
                                                 mask=attention_mask.repeat(head_num, 1, 1))
 
-        linear_output = self.linear_layer(attention_output)
+        tmp_output = torch.cat(torch.split(attention_output, batch_size, dim=0), dim=-1)
+
+        linear_output = self.linear_layer(tmp_output)
 
         dropout_output = self.dropout_layer(linear_output)
 
@@ -173,7 +229,7 @@ class Encoder(nn.Module):
         self.position_embedding.weight.data = position_encoding_init(position_num, word_vec_dim)
 
         self.word_embedding = nn.Embedding(vocab_size, word_vec_dim, padding_idx=0)
-        self.word_embedding.weight.data = torch.from_numpy(word_vec_matrix)
+        # self.word_embedding.weight.data = torch.from_numpy(word_vec_matrix)
 
         self.layer_stack = nn.ModuleList(
             [EncoderLayer(model_dim=model_dim,
@@ -190,7 +246,7 @@ class Encoder(nn.Module):
         word_embedding_output = self.word_embedding(word_seq)
         position_embedding_output = self.position_embedding(pos_seq)
 
-        embedding_output = word_embedding_output + position_embedding_output
+        embedding_output = word_embedding_output.float() + position_embedding_output.float()
 
         output = embedding_output
         attention_mask = get_attention_padding_mask(word_seq, word_seq)
@@ -198,7 +254,60 @@ class Encoder(nn.Module):
         for encoder_layer in self.layer_stack:
             output = encoder_layer(output, attention_mask)
 
-        return output
+        max_pooling_output = torch.max(output, 1)[0]
+
+        return max_pooling_output
+
+class TransformerEncoder_BiLSTM(nn.Module):
+
+    def __init__(self,
+                 encoder_vocab_size,
+                 encoder_sentence_length,
+                 encoder_layer_num,
+                 encoder_head_num,
+                 encoder_k_dim,
+                 encoder_v_dim,
+                 encoder_word_vec_dim,
+                 encoder_model_dim,
+                 encoder_inner_hid_dim,
+                 word_vec_matrix,
+
+                 sent_hidden_dim,
+                 sent_fc_dim,
+                 sent_dropout,
+
+                 tagset_size):
+
+        super(TransformerEncoder_BiLSTM, self).__init__()
+
+        self.sentence_encoder = Encoder(vocab_size=encoder_vocab_size,
+                                        sentence_length=encoder_sentence_length,
+                                        layer_num=encoder_layer_num,
+                                        head_num=encoder_head_num,
+                                        k_dim=encoder_k_dim,
+                                        v_dim=encoder_v_dim,
+                                        word_vec_dim=encoder_word_vec_dim,
+                                        model_dim=encoder_model_dim,
+                                        inner_hid_dim=encoder_inner_hid_dim,
+                                        word_vec_matrix=word_vec_matrix)
+
+        self.sent_lstm = nn.LSTM(input_size=encoder_model_dim, hidden_size=sent_hidden_dim, bidirectional=True, batch_first=True)
+
+        self.classifier = nn.Sequential(
+            nn.Linear(2 * sent_hidden_dim, sent_fc_dim),
+            nn.Dropout(sent_dropout),
+            nn.ReLU(),
+            nn.Linear(sent_fc_dim, sent_fc_dim),
+            nn.Dropout(sent_dropout),
+            nn.ReLU(),
+            nn.Linear(sent_fc_dim, tagset_size)
+        )
+
+    def forward(self, word_seq, pos_seq):
+        sentence_encoder_out = self.sentence_encoder(word_seq, pos_seq)
+        sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(len(sentence_encoder_out), 1, -1))
+        tag_space = self.classifier(sent_lstm_out.view(len(sent_lstm_out), -1))
+        return tag_space
 
 
 

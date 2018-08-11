@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from Net import BiLSTM_BiLSTM
+from Attention_Net import TransformerEncoder_BiLSTM
 
 GPU = torch.cuda.is_available()
 print("GPU available: ", GPU)
@@ -27,7 +28,7 @@ epoch_num = 50
 embedding_dim = 300
 hidden_dim = 300
 fc_dim = 128
-batch_size = 128
+batch_size = 64
 gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
@@ -125,19 +126,18 @@ def train(model, loader, optimizer, loss_func):
     train_acc = {i: 0. for i in range(target_size)}
     total_acc = 0.
     total_loss = 0.
-    for batch_times, (batch_x, batch_x_pos, batch_y) in enumerate(loader):
+    for batch_times, (word_seq, pos_seq, label) in enumerate(loader):
         if batch_times % 20 == 0:
             print("Sentences: ", batch_times * batch_size)
 
         if GPU:
-            batch_x = batch_x.cuda()
-            batch_y = batch_y.cuda()
-            batch_x_pos = batch_x_pos.cuda()
+            word_seq = word_seq.cuda()
+            pos_seq = pos_seq.cuda()
+            label = label.cuda()
 
-        sentence_in = (batch_x, batch_x_pos)
-        targets = batch_y
+        targets = label
 
-        tag_scores = model(sentence_in)
+        tag_scores = model(word_seq, pos_seq)
 
         pred = torch.max(tag_scores, 1)[1]
 
@@ -147,11 +147,7 @@ def train(model, loader, optimizer, loss_func):
             if pred[i] == targets[i]:
                 train_acc[int(targets[i])] += 1
 
-        # loss = loss_func(tag_scores, targets)
-
-        loss = model.get_loss(sentence_tuple=sentence_in,
-                              emotion_loss_func=loss_func,
-                              targets=targets)
+        loss = loss_func(tag_scores, targets)
 
         total_loss += float(loss)
 
@@ -190,18 +186,15 @@ def eval(model, loader, loss_func):
     acc = {i: 0. for i in range(target_size)}
     total_acc = 0.
     total_loss = 0.
-    for batch_x, batch_x_pos, batch_x_len, batch_y in loader:
-
+    for word_seq, pos_seq, label in loader:
         if GPU:
-            batch_x = batch_x.cuda()
-            batch_y = batch_y.cuda()
-            batch_x_len = batch_x_len.cuda()
-            batch_x_pos = batch_x_pos.cuda()
+            word_seq = word_seq.cuda()
+            pos_seq = pos_seq.cuda()
+            label = label.cuda()
 
-        sentence_in = (batch_x, batch_x_len)
-        targets = batch_y
+        targets = label
 
-        tag_scores = model(sentence_in)
+        tag_scores = model(word_seq, pos_seq)
 
         pred = torch.max(tag_scores, 1)[1]
 
@@ -242,13 +235,30 @@ def print_info(sign, total_loss, total_acc, acc, dataset):
 
 vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
 
-model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
-                      hidden_dim=hidden_dim,
-                      fc_dim=fc_dim,
-                      vocab_size=vocab_size,
-                      tagset_size=target_size,
-                      word_vec_matrix=word_vec_matrix,
-                      dropout=dropout_rate)
+# model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
+#                       hidden_dim=hidden_dim,
+#                       fc_dim=fc_dim,
+#                       vocab_size=vocab_size,
+#                       tagset_size=target_size,
+#                       word_vec_matrix=word_vec_matrix,
+#                       dropout=dropout_rate)
+
+model = TransformerEncoder_BiLSTM(encoder_vocab_size=vocab_size,
+                                  encoder_sentence_length=max(train_dataset.max_sentence_length,
+                                                              dev_dataset.max_sentence_length,
+                                                              test_dataset.max_sentence_length),
+                                  encoder_layer_num=6,
+                                  encoder_head_num=8,
+                                  encoder_k_dim=64,
+                                  encoder_v_dim=64,
+                                  encoder_word_vec_dim=512,
+                                  encoder_model_dim=512,
+                                  encoder_inner_hid_dim=1024,
+                                  word_vec_matrix=word_vec_matrix,
+                                  sent_hidden_dim=hidden_dim,
+                                  sent_fc_dim=fc_dim,
+                                  sent_dropout=dropout_rate,
+                                  tagset_size=target_size)
 
 if GPU:
     model.cuda()
