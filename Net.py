@@ -1,5 +1,3 @@
-import random
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -137,21 +135,3 @@ class BiLSTM_BiLSTM(nn.Module):
         print("answer loss: {}".format(float(loss)))
 
         return loss
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

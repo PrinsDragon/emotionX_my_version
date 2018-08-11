@@ -70,9 +70,12 @@ class Sentence:
         self.seq_len = len(seq)
         self.label = label
 
+        self.pos_seq = torch.tensor([i for i in range(1, self.seq_len+1)])
+
     def extend(self, total_length):
         tmp = torch.zeros(total_length-self.seq_len).long()
         self.seq = torch.cat([self.seq, tmp], 0)
+        self.pos_seq = torch.cat([self.pos_seq, tmp], 0)
 
 class EmotionDataSet(Dataset):
     def __init__(self, data_dir):
@@ -100,7 +103,9 @@ class EmotionDataSet(Dataset):
         self.sentences_num = self.sentences.__len__()
 
     def __getitem__(self, index):
-        return self.sentences[index].seq, self.sentences[index].seq_len, self.sentences[index].label
+        return self.sentences[index].seq, \
+               self.sentences[index].pos_seq, \
+               self.sentences[index].label
 
     def __len__(self):
         return self.sentences_num
@@ -120,16 +125,16 @@ def train(model, loader, optimizer, loss_func):
     train_acc = {i: 0. for i in range(target_size)}
     total_acc = 0.
     total_loss = 0.
-    for batch_times, (batch_x, batch_x_len, batch_y) in enumerate(loader):
+    for batch_times, (batch_x, batch_x_pos, batch_y) in enumerate(loader):
         if batch_times % 20 == 0:
             print("Sentences: ", batch_times * batch_size)
 
         if GPU:
             batch_x = batch_x.cuda()
             batch_y = batch_y.cuda()
-            batch_x_len = batch_x_len.cuda()
+            batch_x_pos = batch_x_pos.cuda()
 
-        sentence_in = (batch_x, batch_x_len)
+        sentence_in = (batch_x, batch_x_pos)
         targets = batch_y
 
         tag_scores = model(sentence_in)
@@ -185,12 +190,13 @@ def eval(model, loader, loss_func):
     acc = {i: 0. for i in range(target_size)}
     total_acc = 0.
     total_loss = 0.
-    for batch_x, batch_x_len, batch_y in loader:
+    for batch_x, batch_x_pos, batch_x_len, batch_y in loader:
 
         if GPU:
             batch_x = batch_x.cuda()
             batch_y = batch_y.cuda()
             batch_x_len = batch_x_len.cuda()
+            batch_x_pos = batch_x_pos.cuda()
 
         sentence_in = (batch_x, batch_x_len)
         targets = batch_y
@@ -259,7 +265,7 @@ for i in range(mode):
 
 
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-loss_func = nn.CrossEntropyLoss(weight=weight, reduce=True, size_average=False)
+loss_func = nn.CrossEntropyLoss(weight=weight, reduce=True, size_average=True)
 
 # train & dev
 print("**********************************")
