@@ -9,8 +9,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from Net import BiLSTM_BiLSTM
 
-GPU = torch.cuda.is_available()
-print("GPU available: ", GPU)
+print("GPU available: ", torch.cuda.is_available())
 
 # parameters
 # dataset = "EmotionPush"
@@ -124,31 +123,22 @@ def train(model, loader, optimizer, loss_func):
         if batch_times % 20 == 0:
             print("Sentences: ", batch_times * batch_size)
 
-        if GPU:
-            batch_x = batch_x.cuda()
-            batch_y = batch_y.cuda()
-            batch_x_len = batch_x_len.cuda()
-
-        sentence_in = (batch_x, batch_x_len)
-        targets = batch_y
+        sentence_in = (batch_x.cuda(), batch_x_len.cuda())
+        targets = batch_y.cuda()
 
         tag_scores = model(sentence_in)
 
         pred = torch.max(tag_scores, 1)[1]
 
-        total_acc += float((pred == targets).sum())
+        total_acc += (pred == targets).sum()
 
         for i in range(len(pred)):
             if pred[i] == targets[i]:
                 train_acc[int(targets[i])] += 1
 
-        # loss = loss_func(tag_scores, targets)
+        loss = loss_func(tag_scores, targets)
 
-        loss = model.get_loss(sentence_tuple=sentence_in,
-                              emotion_loss_func=loss_func,
-                              targets=targets)
-
-        total_loss += float(loss)
+        total_loss += loss
 
         # backward
         optimizer.zero_grad()
@@ -187,19 +177,14 @@ def eval(model, loader, loss_func):
     total_loss = 0.
     for batch_x, batch_x_len, batch_y in loader:
 
-        if GPU:
-            batch_x = batch_x.cuda()
-            batch_y = batch_y.cuda()
-            batch_x_len = batch_x_len.cuda()
-
-        sentence_in = (batch_x, batch_x_len)
-        targets = batch_y
+        sentence_in = (batch_x.cuda(), batch_x_len.cuda())
+        targets = batch_y.cuda()
 
         tag_scores = model(sentence_in)
 
         pred = torch.max(tag_scores, 1)[1]
 
-        total_acc += float((pred == targets).sum())
+        total_acc += (pred == targets).sum()
 
         for i in range(len(pred)):
             if pred[i] == targets[i]:
@@ -210,7 +195,7 @@ def eval(model, loader, loss_func):
     return acc, total_acc, total_loss
 
 def print_info(sign, total_loss, total_acc, acc, dataset):
-    print("{}: Loss: {:.6f}, Acc: {:.6f}".format(sign, total_loss / (len(dataset)), total_acc / (len(dataset))))
+    print("{}: Loss: {:.6f}, Acc: {:.6f}".format(sign, total_loss / (len(dataset)), total_acc.float() / (len(dataset))))
 
     eval = [acc[i] / dataset.emotion_num[i] for i in range(mode)]
 
@@ -242,24 +227,17 @@ model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
                       vocab_size=vocab_size,
                       tagset_size=target_size,
                       word_vec_matrix=word_vec_matrix,
-                      dropout=dropout_rate)
-
-if GPU:
-    model.cuda()
+                      dropout=dropout_rate).cuda()
 
 print(model)
 
-weight = torch.Tensor(target_size).float().fill_(0.)
-
-if GPU:
-    weight = weight.cuda()
-
+weight = torch.Tensor(target_size).cuda().float().fill_(0.)
 for i in range(mode):
     weight[i] = 100. / train_dataset.emotion_num[i]
 
 
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-loss_func = nn.CrossEntropyLoss(weight=weight, reduce=True, size_average=False)
+loss_func = nn.CrossEntropyLoss(weight=weight)
 
 # train & dev
 print("**********************************")
