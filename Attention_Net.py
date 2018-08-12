@@ -118,8 +118,11 @@ class MultiHeadAttentionUnit(nn.Module):
         multi_k = torch.bmm(multi_k, self.w_ks).view(-1, k_len, k_dim)
         multi_v = torch.bmm(multi_v, self.w_vs).view(-1, v_len, v_dim)
 
+        if attention_mask is not None:
+            attention_mask = attention_mask.repeat(head_num, 1, 1)
+
         attention_output = self.attention_layer(multi_q, multi_k, multi_v,
-                                                mask=attention_mask.repeat(head_num, 1, 1))
+                                                mask=attention_mask)
 
         tmp_output = torch.cat(torch.split(attention_output, batch_size, dim=0), dim=-1)
 
@@ -254,13 +257,13 @@ class Encoder_Max_Pooling(nn.Module):
         max_pooling_output = torch.max(output, 1)[0]
         return max_pooling_output
 
-class Sent_Encoder_Max_Pooling(nn.Module):
+class Sent_Encoder(nn.Module):
     def __init__(self, paragraph_length, layer_num, head_num, k_dim, v_dim,
                  input_vec_dim, model_dim, inner_hid_dim, dropout=0.1):
-        super(Sent_Encoder_Max_Pooling, self).__init__()
+        super(Sent_Encoder, self).__init__()
 
         position_num = paragraph_length + 1
-        self.sentence_length = paragraph_length
+        self.paragraph_length = paragraph_length
         self.model_dim = model_dim
 
         self.position_embedding = nn.Embedding(position_num, input_vec_dim, padding_idx=0)
@@ -277,7 +280,9 @@ class Sent_Encoder_Max_Pooling(nn.Module):
              ]
         )
 
-    def forward(self, para_matrix, pos_seq):
+    def forward(self, para_matrix):
+        pos_seq = torch.tensor([i for i in range(1, self.paragraph_length+1)]).cuda()
+
         position_embedding_output = self.position_embedding(pos_seq)
 
         embedding_output = para_matrix.float() + position_embedding_output.float()
@@ -287,10 +292,7 @@ class Sent_Encoder_Max_Pooling(nn.Module):
         for encoder_layer in self.layer_stack:
             output = encoder_layer(output)
 
-        max_pooling_output = torch.max(output, 1)[0]
-
-        return max_pooling_output
-
+        return output
 
 class TransformerEncoder_BiLSTM(nn.Module):
 
@@ -331,8 +333,7 @@ class TransformerEncoder_BiLSTM(nn.Module):
 
 class BiLSTM_TransformerEncoder(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout,
-                 trans_sentence_length, trans_layer_num, trans_head_num, trans_k_dim, trans_v_dim,
-                 trans_model_dim, trans_inner_hid_dim):
+                 paragraph_length, layer_num, head_num, k_dim, v_dim, input_vec_dim, model_dim, inner_hid_dim):
         super(BiLSTM_TransformerEncoder, self).__init__()
 
         self.sentence_encoder = BiLstmSentenceEncoder(embedding_dim=embedding_dim,
@@ -340,22 +341,17 @@ class BiLSTM_TransformerEncoder(nn.Module):
                                                       vocab_size=vocab_size,
                                                       word_vec_matrix=word_vec_matrix)
 
-        self.sent_transformer = Encoder(vocab_size=vocab_size,
-                                        sentence_length=trans_sentence_length,
-                                        layer_num=trans_layer_num,
-                                        head_num=trans_head_num,
-                                        k_dim=trans_k_dim,
-                                        v_dim=trans_v_dim,
-                                        word_vec_matrix=word_vec_matrix,
-                                        model_dim=trans_model_dim,
-                                        inner_hid_dim=trans_inner_hid_dim,
-                                        word_vec_dim=embedding_dim
-                                        )
-
-        self.sent_lstm = nn.LSTM(input_size=2*embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
+        self.sent_transformer = Sent_Encoder(paragraph_length=paragraph_length,
+                                             layer_num=layer_num,
+                                             head_num=head_num,
+                                             k_dim=k_dim,
+                                             v_dim=v_dim,
+                                             inner_hid_dim=inner_hid_dim,
+                                             input_vec_dim=input_vec_dim,
+                                             model_dim=model_dim)
 
         self.classifier = nn.Sequential(
-            nn.Linear(2 * hidden_dim, fc_dim),
+            nn.Linear(model_dim, fc_dim),
             nn.Dropout(dropout),
             nn.ReLU(),
             nn.Linear(fc_dim, fc_dim),
@@ -366,8 +362,8 @@ class BiLSTM_TransformerEncoder(nn.Module):
 
     def forward(self, sentence_tuple):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
-        sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(len(sentence_encoder_out), 1, -1))
-        tag_space = self.classifier(sent_lstm_out.view(len(sent_lstm_out), -1))
+        tranformer_out = self.sent_transformer(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
+        tag_space = self.classifier(tranformer_out.view(tranformer_out.shape[1], -1))
         return tag_space
 
 
