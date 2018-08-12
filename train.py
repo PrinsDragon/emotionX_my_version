@@ -15,7 +15,7 @@ print("GPU available: ", GPU)
 
 # parameters
 # dataset = "EmotionPush"
-dataset = "Merge"
+dataset = "Friends"
 mode = 4
 print("Now running dataset = {}, mode = {}".format(dataset, mode))
 
@@ -123,6 +123,8 @@ test_dataset = EmotionDataSet(data_dir=test_dir)
 test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
 
 def train(model, loader, optimizer, loss_func):
+    model.train()
+
     train_acc = {i: 0. for i in range(target_size)}
     total_acc = 0.
     total_loss = 0.
@@ -251,8 +253,8 @@ model = TransformerEncoder_BiLSTM(encoder_vocab_size=vocab_size,
                                   encoder_head_num=8,
                                   encoder_k_dim=64,
                                   encoder_v_dim=64,
-                                  encoder_word_vec_dim=512,
-                                  encoder_model_dim=512,
+                                  encoder_word_vec_dim=300,
+                                  encoder_model_dim=300,
                                   encoder_inner_hid_dim=1024,
                                   word_vec_matrix=word_vec_matrix,
                                   sent_hidden_dim=hidden_dim,
