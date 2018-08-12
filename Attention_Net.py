@@ -4,8 +4,6 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 
-from Net import BiLstmSentenceEncoder
-
 # Modules
 class Linear(nn.Module):
     ''' Simple Linear layer with xavier init '''
@@ -35,6 +33,27 @@ class BottleSoftmax(Bottle, nn.Softmax):
     ''' Perform the reshape routine before and after a softmax operation'''
     pass
 
+class LayerNormalization(nn.Module):
+    ''' Layer normalization module '''
+
+    def __init__(self, d_hid, eps=1e-3):
+        super(LayerNormalization, self).__init__()
+
+        self.eps = eps
+        self.a_2 = nn.Parameter(torch.ones(d_hid), requires_grad=True)
+        self.b_2 = nn.Parameter(torch.zeros(d_hid), requires_grad=True)
+
+    def forward(self, z):
+        if z.size(1) == 1:
+            return z
+
+        mu = torch.mean(z, keepdim=True, dim=-1)
+        sigma = torch.std(z, keepdim=True, dim=-1)
+        ln_out = (z - mu.expand_as(z)) / (sigma.expand_as(z) + self.eps)
+        ln_out = ln_out * self.a_2.expand_as(ln_out) + self.b_2.expand_as(ln_out)
+
+        return ln_out
+
 class ScaledDotProductAttention(nn.Module):
 
     def __init__(self, model_dim, attention_dropout=0.1):
@@ -43,11 +62,9 @@ class ScaledDotProductAttention(nn.Module):
         self.dropout_layer = nn.Dropout(attention_dropout)
         self.softmax_layer = BottleSoftmax()
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v, mask):
         attention_matrix = torch.bmm(q, k.transpose(1, 2)) / self.scale_constant
-
-        if mask is not None:
-            attention_matrix.data.masked_fill_(mask, -float('inf'))
+        attention_matrix.data.masked_fill_(mask, -float('inf'))
 
         attention_matrix = self.softmax_layer(attention_matrix)
         attention_matrix = self.dropout_layer(attention_matrix)
@@ -99,7 +116,7 @@ class MultiHeadAttentionUnit(nn.Module):
         init.xavier_normal(self.w_ks)
         init.xavier_normal(self.w_vs)
 
-    def forward(self, q, k, v, attention_mask=None):
+    def forward(self, q, k, v, attention_mask):
         k_dim = self.k_dim
         v_dim = self.v_dim
         head_num = self.head_num
@@ -166,7 +183,7 @@ class EncoderLayer(nn.Module):
             dropout=dropout
         )
 
-    def forward(self, input, attention_mask=None):
+    def forward(self, input, attention_mask):
         attention_output = self.attention_layer(
             q=input,
             k=input,
@@ -212,7 +229,7 @@ class Encoder(nn.Module):
         self.position_embedding.weight.data = position_encoding_init(position_num, word_vec_dim)
 
         self.word_embedding = nn.Embedding(vocab_size, word_vec_dim, padding_idx=0)
-        self.word_embedding.weight.data = torch.from_numpy(word_vec_matrix)
+        # self.word_embedding.weight.data = torch.from_numpy(word_vec_matrix)
 
         self.layer_stack = nn.ModuleList(
             [EncoderLayer(model_dim=model_dim,
@@ -237,79 +254,42 @@ class Encoder(nn.Module):
         for encoder_layer in self.layer_stack:
             output = encoder_layer(output, attention_mask)
 
-        return output
-
-class Encoder_Max_Pooling(nn.Module):
-
-    def __init__(self, vocab_size, sentence_length, layer_num, head_num, k_dim, v_dim,
-                 word_vec_dim, model_dim, inner_hid_dim, word_vec_matrix, dropout=0.1):
-
-        super(Encoder_Max_Pooling, self).__init__()
-
-        self.Encoder = Encoder(vocab_size, sentence_length, layer_num, head_num, k_dim, v_dim,
-                               word_vec_dim, model_dim, inner_hid_dim, word_vec_matrix, dropout)
-
-    def forward(self, word_seq, pos_seq):
-        output = self.Encoder(word_seq, pos_seq)
-        max_pooling_output = torch.max(output, 1)[0]
-        return max_pooling_output
-
-class Sent_Encoder_Max_Pooling(nn.Module):
-    def __init__(self, paragraph_length, layer_num, head_num, k_dim, v_dim,
-                 input_vec_dim, model_dim, inner_hid_dim, dropout=0.1):
-        super(Sent_Encoder_Max_Pooling, self).__init__()
-
-        position_num = paragraph_length + 1
-        self.sentence_length = paragraph_length
-        self.model_dim = model_dim
-
-        self.position_embedding = nn.Embedding(position_num, input_vec_dim, padding_idx=0)
-        self.position_embedding.weight.data = position_encoding_init(position_num, input_vec_dim)
-
-        self.layer_stack = nn.ModuleList(
-            [EncoderLayer(model_dim=model_dim,
-                          inner_hid_dim=inner_hid_dim,
-                          head_num=head_num,
-                          k_dim=k_dim,
-                          v_dim=v_dim,
-                          dropout=dropout)
-             for _ in range(layer_num)
-             ]
-        )
-
-    def forward(self, para_matrix, pos_seq):
-        position_embedding_output = self.position_embedding(pos_seq)
-
-        embedding_output = para_matrix.float() + position_embedding_output.float()
-
-        output = embedding_output
-
-        for encoder_layer in self.layer_stack:
-            output = encoder_layer(output)
-
         max_pooling_output = torch.max(output, 1)[0]
 
         return max_pooling_output
-
 
 class TransformerEncoder_BiLSTM(nn.Module):
 
-    def __init__(self, encoder_vocab_size, encoder_sentence_length, encoder_layer_num, encoder_head_num, encoder_k_dim,
-                 encoder_v_dim, encoder_word_vec_dim, encoder_model_dim, encoder_inner_hid_dim, word_vec_matrix,
-                 sent_hidden_dim, sent_fc_dim, sent_dropout, tagset_size):
+    def __init__(self,
+                 encoder_vocab_size,
+                 encoder_sentence_length,
+                 encoder_layer_num,
+                 encoder_head_num,
+                 encoder_k_dim,
+                 encoder_v_dim,
+                 encoder_word_vec_dim,
+                 encoder_model_dim,
+                 encoder_inner_hid_dim,
+                 word_vec_matrix,
+
+                 sent_hidden_dim,
+                 sent_fc_dim,
+                 sent_dropout,
+
+                 tagset_size):
 
         super(TransformerEncoder_BiLSTM, self).__init__()
 
-        self.sentence_encoder = Encoder_Max_Pooling(vocab_size=encoder_vocab_size,
-                                                    sentence_length=encoder_sentence_length,
-                                                    layer_num=encoder_layer_num,
-                                                    head_num=encoder_head_num,
-                                                    k_dim=encoder_k_dim,
-                                                    v_dim=encoder_v_dim,
-                                                    word_vec_dim=encoder_word_vec_dim,
-                                                    model_dim=encoder_model_dim,
-                                                    inner_hid_dim=encoder_inner_hid_dim,
-                                                    word_vec_matrix=word_vec_matrix)
+        self.sentence_encoder = Encoder(vocab_size=encoder_vocab_size,
+                                        sentence_length=encoder_sentence_length,
+                                        layer_num=encoder_layer_num,
+                                        head_num=encoder_head_num,
+                                        k_dim=encoder_k_dim,
+                                        v_dim=encoder_v_dim,
+                                        word_vec_dim=encoder_word_vec_dim,
+                                        model_dim=encoder_model_dim,
+                                        inner_hid_dim=encoder_inner_hid_dim,
+                                        word_vec_matrix=word_vec_matrix)
 
         self.sent_lstm = nn.LSTM(input_size=encoder_model_dim, hidden_size=sent_hidden_dim, bidirectional=True, batch_first=True)
 
@@ -325,47 +305,6 @@ class TransformerEncoder_BiLSTM(nn.Module):
 
     def forward(self, word_seq, pos_seq):
         sentence_encoder_out = self.sentence_encoder(word_seq, pos_seq)
-        sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(len(sentence_encoder_out), 1, -1))
-        tag_space = self.classifier(sent_lstm_out.view(len(sent_lstm_out), -1))
-        return tag_space
-
-class BiLSTM_TransformerEncoder(nn.Module):
-    def __init__(self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout,
-                 trans_sentence_length, trans_layer_num, trans_head_num, trans_k_dim, trans_v_dim,
-                 trans_model_dim, trans_inner_hid_dim):
-        super(BiLSTM_TransformerEncoder, self).__init__()
-
-        self.sentence_encoder = BiLstmSentenceEncoder(embedding_dim=embedding_dim,
-                                                      hidden_dim=hidden_dim,
-                                                      vocab_size=vocab_size,
-                                                      word_vec_matrix=word_vec_matrix)
-
-        self.sent_transformer = Encoder(vocab_size=vocab_size,
-                                        sentence_length=trans_sentence_length,
-                                        layer_num=trans_layer_num,
-                                        head_num=trans_head_num,
-                                        k_dim=trans_k_dim,
-                                        v_dim=trans_v_dim,
-                                        word_vec_matrix=word_vec_matrix,
-                                        model_dim=trans_model_dim,
-                                        inner_hid_dim=trans_inner_hid_dim,
-                                        word_vec_dim=embedding_dim
-                                        )
-
-        self.sent_lstm = nn.LSTM(input_size=2*embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
-
-        self.classifier = nn.Sequential(
-            nn.Linear(2 * hidden_dim, fc_dim),
-            nn.Dropout(dropout),
-            nn.ReLU(),
-            nn.Linear(fc_dim, fc_dim),
-            nn.Dropout(dropout),
-            nn.ReLU(),
-            nn.Linear(fc_dim, tagset_size)
-        )
-
-    def forward(self, sentence_tuple):
-        sentence_encoder_out = self.sentence_encoder(sentence_tuple)
         sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(len(sentence_encoder_out), 1, -1))
         tag_space = self.classifier(sent_lstm_out.view(len(sent_lstm_out), -1))
         return tag_space
