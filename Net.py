@@ -1,5 +1,8 @@
+import random
+
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 # Net
@@ -68,11 +71,74 @@ class BiLSTM_BiLSTM(nn.Module):
             nn.Linear(fc_dim, tagset_size)
         )
 
+        self.qa_score_linear = nn.Sequential(
+            nn.Linear(2*embedding_dim*4, 100),
+            nn.Linear(100, 1)
+        )
+
     def forward(self, sentence_tuple):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
         sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(len(sentence_encoder_out), 1, -1))
         tag_space = self.classifier(sent_lstm_out.view(len(sent_lstm_out), -1))
         return tag_space
+
+    def question_answer_score(self, question_tensor, answer_tensor):
+        # abs_part = torch.abs(question_tensor - answer_tensor)
+        # multiply_part = question_tensor * answer_tensor
+        # cat_tensor = torch.cat([question_tensor, answer_tensor, abs_part, multiply_part], 0)
+        # score = self.qa_score_linear(cat_tensor)
+        # return score
+        question_matrix = question_tensor.view(1, -1)
+        answer_matrix = answer_tensor.view(1, -1)
+
+        return torch.mm(question_matrix, answer_matrix.t()).view([])
+
+    # multitask loss
+    def get_loss(self, sentence_tuple, emotion_loss_func, targets):
+        sentence_encoder_out = self.sentence_encoder(sentence_tuple)
+
+        sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(len(sentence_encoder_out), 1, -1))
+        tag_space = self.classifier(sent_lstm_out.view(len(sent_lstm_out), -1))
+        emotion_loss = emotion_loss_func(tag_space, targets)
+
+        return emotion_loss
+
+        # self.loss = tf.reduce_mean(tf.nn.relu(1 + self.qa_score_1 - self.qa_score_2)
+        sentence_num = len(sentence_encoder_out)
+
+        batch_loss = []
+        for i in range(sentence_num - 1):
+            sent_loss = []
+
+            sent = sentence_encoder_out[i]
+            next_sent = sentence_encoder_out[i+1]
+            true_score = self.question_answer_score(sent, next_sent)
+
+            # rand_sample = random.sample([i for i in range(sentence_num)], 10)
+
+            for j in range(sentence_num):
+                if j != i and j != i+1:
+                    false_sent = sentence_encoder_out[j]
+                    false_score = self.question_answer_score(sent, false_sent)
+                    sent_loss.append(F.relu(1 + true_score - false_score))
+
+            sent_loss_sum = sum(sent_loss)
+            sent_loss_mean = sent_loss_sum / len(sent_loss)
+            batch_loss.append(sent_loss_mean)
+
+        batch_loss_sum = sum(batch_loss)
+        batch_loss_mean = batch_loss_sum / len(batch_loss)
+
+        # loss = emotion_loss + batch_loss_mean
+
+        # print("emotion loss: {:.3f} answer loss: {:.3f}".format(float(emotion_loss), float(batch_loss_mean)))
+
+        loss = batch_loss_mean
+        print("answer loss: {}".format(float(loss)))
+
+        return loss
+
+
 
 
 
