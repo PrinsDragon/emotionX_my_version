@@ -44,7 +44,7 @@ class ScaledDotProductAttention(nn.Module):
         self.softmax_layer = BottleSoftmax()
 
     def forward(self, q, k, v, mask=None):
-        attention_matrix = torch.bmm(q, k.transpose(1, 2)) / self.scale_constant
+        attention_matrix = torch.mm(q, k.transpose(0, 1)) / self.scale_constant
 
         if mask is not None:
             attention_matrix.data.masked_fill_(mask, -float('inf'))
@@ -52,7 +52,7 @@ class ScaledDotProductAttention(nn.Module):
         attention_matrix = self.softmax_layer(attention_matrix)
         attention_matrix = self.dropout_layer(attention_matrix)
 
-        output = torch.bmm(attention_matrix, v)
+        output = torch.mm(attention_matrix, v)
 
         return output
 
@@ -129,6 +129,41 @@ class MultiHeadAttentionUnit(nn.Module):
         linear_output = self.linear_layer(tmp_output)
 
         dropout_output = self.dropout_layer(linear_output)
+
+        return self.norm_layer(dropout_output + res)
+
+class OneHeadAttentionUnit(nn.Module):
+
+    def __init__(self, model_dim, k_dim, v_dim, dropout=0.1):
+        super(OneHeadAttentionUnit, self).__init__()
+
+        self.k_dim = k_dim
+        self.v_dim = v_dim
+
+        self.w_qs = nn.Parameter(torch.FloatTensor(model_dim, k_dim))
+        self.w_ks = nn.Parameter(torch.FloatTensor(model_dim, k_dim))
+        self.w_vs = nn.Parameter(torch.FloatTensor(model_dim, v_dim))
+
+        self.attention_layer = ScaledDotProductAttention(model_dim)
+        self.norm_layer = LayerNormalization(model_dim)
+        self.dropout_layer = nn.Dropout(dropout)
+
+        init.xavier_normal(self.w_qs)
+        init.xavier_normal(self.w_ks)
+        init.xavier_normal(self.w_vs)
+
+    def forward(self, q, k, v, attention_mask=None):
+
+        res = q
+
+        multi_q = torch.mm(q, self.w_qs)
+        multi_k = torch.mm(k, self.w_ks)
+        multi_v = torch.mm(v, self.w_vs)
+
+        attention_output = self.attention_layer(multi_q, multi_k, multi_v,
+                                                mask=attention_mask)
+
+        dropout_output = self.dropout_layer(attention_output)
 
         return self.norm_layer(dropout_output + res)
 
@@ -364,6 +399,60 @@ class BiLSTM_TransformerEncoder(nn.Module):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
         tranformer_out = self.sent_transformer(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
         tag_space = self.classifier(tranformer_out.view(tranformer_out.shape[1], -1))
+        return tag_space
+
+class BiLSTM_Attention(nn.Module):
+    def __init__(self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout,
+                 max_paragraph_len):
+        super(BiLSTM_Attention, self).__init__()
+
+        self.sentence_encoder = BiLstmSentenceEncoder(embedding_dim=embedding_dim,
+                                                      hidden_dim=hidden_dim,
+                                                      vocab_size=vocab_size,
+                                                      word_vec_matrix=word_vec_matrix)
+
+        self.model_dim = 2 * embedding_dim
+
+        self.position_num = max_paragraph_len
+        self.position_embedding = nn.Embedding(max_paragraph_len + 1, self.model_dim, padding_idx=0)
+        self.position_embedding.weight.data = position_encoding_init(max_paragraph_len, self.model_dim)
+
+        self.attention = OneHeadAttentionUnit(self.model_dim, self.model_dim, self.model_dim)
+
+        self.classifier = nn.Sequential(
+            nn.Linear(self.model_dim, fc_dim),
+            nn.Dropout(dropout),
+            nn.ReLU(),
+            nn.Linear(fc_dim, fc_dim),
+            nn.Dropout(dropout),
+            nn.ReLU(),
+            nn.Linear(fc_dim, tagset_size)
+        )
+
+    def forward(self, sentence_tuple):
+        sentence_encoder_out = self.sentence_encoder(sentence_tuple)
+
+        paragragh_len = len(sentence_tuple[0])
+        pos_list = torch.LongTensor([i for i in range(paragragh_len)]).cuda()
+        pos_embedding = self.position_embedding(pos_list)
+
+        attention_input = sentence_encoder_out + pos_embedding
+
+        pad = nn.ZeroPad2d((0, 0, 0, self.position_num - paragragh_len))
+        attention_input = pad(attention_input)
+
+        len_mask = np.ones((self.position_num, 1))
+        len_mask[paragragh_len:] = 0
+        attn_mask = np.matmul(len_mask, len_mask.transpose())
+        attn_mask = torch.from_numpy(attn_mask).cuda()
+        attn_mask = torch.eq(attn_mask, 0)
+
+        attention_out = self.attention(attention_input, attention_input, attention_input, attn_mask)
+
+        tag_space = self.classifier(attention_out)
+
+        tag_space = tag_space[:paragragh_len]
+
         return tag_space
 
 
