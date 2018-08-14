@@ -145,16 +145,15 @@ class EmotionDataSet(Dataset):
     def get_paragraph(self):
         for para in self.paragraphs:
             para_tensor = para[0].seq.view(1, -1)
+            sentence_lengths = torch.tensor([sent.seq_len for sent in para])
+            sentence_labels = torch.tensor([sent.label for sent in para])
             for i in range(1, len(para)):
                 seq_tensor = para[i].seq.view(1, -1)
                 para_tensor = torch.cat([para_tensor, seq_tensor], 0)
-            print(1)
+            yield para_tensor, sentence_lengths, sentence_labels
 
 # Load
 train_dataset = EmotionDataSet(data_dir=train_dir)
-
-train_dataset.get_paragraph()
-
 train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
 dev_dataset = EmotionDataSet(data_dir=dev_dir)
@@ -220,7 +219,9 @@ model = BiLSTM_Attention(embedding_dim=embedding_dim,
                          tagset_size=target_size,
                          word_vec_matrix=word_vec_matrix,
                          dropout=dropout_rate,
-                         max_paragraph_len=batch_size)
+                         max_paragraph_len=max(train_dataset.max_paragraph_length,
+                                               dev_dataset.max_paragraph_length,
+                                               test_dataset.max_paragraph_length))
 
 if GPU:
     model.cuda()
@@ -246,8 +247,8 @@ def train(loader, optimizer, loss_func):
     total_acc = 0.
     total_loss = 0.
     for batch_times, (word_seq, seq_len, label) in enumerate(loader):
-        if batch_times % 20 == 0:
-            print("Sentences: ", batch_times * batch_size)
+        # if batch_times % 20 == 0:
+        #     print("Sentences: ", batch_times * batch_size)
 
         if GPU:
             word_seq = word_seq.cuda()
@@ -369,12 +370,14 @@ for epoch in range(epoch_num):
 
     # train
     model.train()
-    train_acc, total_acc, total_loss = train(loader=train_loader, loss_func=loss_func, optimizer=optimizer)
+    # train_acc, total_acc, total_loss = train(loader=train_loader, loss_func=loss_func, optimizer=optimizer)
+    train_acc, total_acc, total_loss = train(loader=train_dataset.get_paragraph(), loss_func=loss_func, optimizer=optimizer)
     print_info(sign="Train", total_loss=total_loss, total_acc=total_acc, acc=train_acc, dataset=train_dataset)
 
     # dev
     model.eval()
-    dev_acc, total_acc, total_loss = eval(loader=dev_loader, loss_func=loss_func)
+    # dev_acc, total_acc, total_loss = eval(loader=dev_loader, loss_func=loss_func)
+    dev_acc, total_acc, total_loss = eval(loader=dev_dataset.get_paragraph(), loss_func=loss_func)
     dev_average_acc = print_info(sign="Dev", total_loss=total_loss, total_acc=total_acc, acc=dev_acc, dataset=dev_dataset)
 
     if dev_average_acc > max_dev_average_acc:

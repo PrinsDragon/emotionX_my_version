@@ -14,7 +14,7 @@ class Linear(nn.Module):
     def __init__(self, d_in, d_out, bias=True):
         super(Linear, self).__init__()
         self.linear = nn.Linear(d_in, d_out, bias=bias)
-        init.xavier_normal(self.linear.weight)
+        init.xavier_normal_(self.linear.weight)
 
     def forward(self, x):
         return self.linear(x)
@@ -97,9 +97,9 @@ class MultiHeadAttentionUnit(nn.Module):
 
         self.dropout_layer = nn.Dropout(dropout)
 
-        init.xavier_normal(self.w_qs)
-        init.xavier_normal(self.w_ks)
-        init.xavier_normal(self.w_vs)
+        init.xavier_normal_(self.w_qs)
+        init.xavier_normal_(self.w_ks)
+        init.xavier_normal_(self.w_vs)
 
     def forward(self, q, k, v, attention_mask=None):
         k_dim = self.k_dim
@@ -150,9 +150,9 @@ class OneHeadAttentionUnit(nn.Module):
         self.norm_layer = LayerNormalization(model_dim)
         self.dropout_layer = nn.Dropout(dropout)
 
-        init.xavier_normal(self.w_qs)
-        init.xavier_normal(self.w_ks)
-        init.xavier_normal(self.w_vs)
+        init.xavier_normal_(self.w_qs)
+        init.xavier_normal_(self.w_ks)
+        init.xavier_normal_(self.w_vs)
 
     def forward(self, q, k, v, attention_mask=None):
 
@@ -453,7 +453,7 @@ class BiLSTM_Attention(nn.Module):
         len_mask = np.ones((self.position_num, 1))
         len_mask[paragragh_len:] = 0
         attn_mask = np.matmul(len_mask, len_mask.transpose())
-        attn_mask = torch.from_numpy(attn_mask).cuda()
+        attn_mask = torch.from_numpy(attn_mask)
 
         if GPU:
             attn_mask = attn_mask.cuda()
