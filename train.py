@@ -30,7 +30,7 @@ epoch_num = 50
 embedding_dim = 300
 hidden_dim = 300
 fc_dim = 128
-batch_size = 128
+batch_size = 3
 gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
@@ -124,16 +124,38 @@ class EmotionDataSet(Dataset):
 
         # return self.sentences[index].seq, self.sentences[index].seq_len, self.sentences[index].label
 
-        return self.paragraphs[index], [sent.seq_len for sent in self.paragraphs[index]]
+        return ([sent.seq for sent in self.paragraphs[index]],
+                [sent.seq_len for sent in self.paragraphs[index]],
+                [sent.label for sent in self.paragraphs[index]])
 
     def __len__(self):
         # return self.sentences_num
         return self.paragraphs_num
 
-# Load
+    # def get_batch(self, batch_size):
+    #     p = 0
+    #     while True:
+    #         yield [[sent.seq for sent in self.paragraphs[i]] for i in range(p, p+batch_size)], \
+    #               [[sent.seq_len for sent in self.paragraphs[i]] for i in range(p, p+batch_size)], \
+    #               [[sent.label for sent in self.paragraphs[i]] for i in range(p, p+batch_size)]
+    #         p = p + batch_size
+    #         if p+batch_size > self.paragraphs_num:
+    #             break
 
+    def get_paragraph(self):
+        for para in self.paragraphs:
+            para_tensor = para[0].seq.view(1, -1)
+            for i in range(1, len(para)):
+                seq_tensor = para[i].seq.view(1, -1)
+                para_tensor = torch.cat([para_tensor, seq_tensor], 0)
+            print(1)
+
+# Load
 train_dataset = EmotionDataSet(data_dir=train_dir)
-train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+
+train_dataset.get_paragraph()
+
+train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
 dev_dataset = EmotionDataSet(data_dir=dev_dir)
 dev_loader = DataLoader(dataset=dev_dataset, batch_size=batch_size, shuffle=False, drop_last=False)

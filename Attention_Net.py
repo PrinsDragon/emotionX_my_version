@@ -6,6 +6,8 @@ import torch.nn.init as init
 
 from Net import BiLstmSentenceEncoder
 
+GPU = False
+
 # Modules
 class Linear(nn.Module):
     ''' Simple Linear layer with xavier init '''
@@ -318,6 +320,9 @@ class Sent_Encoder(nn.Module):
     def forward(self, para_matrix):
         pos_seq = torch.tensor([i for i in range(1, self.paragraph_length+1)]).cuda()
 
+        if GPU:
+            pos_seq = pos_seq.cuda()
+
         position_embedding_output = self.position_embedding(pos_seq)
 
         embedding_output = para_matrix.float() + position_embedding_output.float()
@@ -433,7 +438,11 @@ class BiLSTM_Attention(nn.Module):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
 
         paragragh_len = len(sentence_tuple[0])
-        pos_list = torch.LongTensor([i for i in range(paragragh_len)]).cuda()
+        pos_list = torch.LongTensor([i for i in range(paragragh_len)])
+
+        if GPU:
+            pos_list = pos_list.cuda()
+
         pos_embedding = self.position_embedding(pos_list)
 
         attention_input = sentence_encoder_out + pos_embedding
@@ -445,6 +454,10 @@ class BiLSTM_Attention(nn.Module):
         len_mask[paragragh_len:] = 0
         attn_mask = np.matmul(len_mask, len_mask.transpose())
         attn_mask = torch.from_numpy(attn_mask).cuda()
+
+        if GPU:
+            attn_mask = attn_mask.cuda()
+
         attn_mask = torch.eq(attn_mask, 0)
 
         attention_out = self.attention(attention_input, attention_input, attention_input, attn_mask)
