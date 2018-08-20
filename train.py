@@ -388,7 +388,7 @@ for epoch in range(epoch_num):
         print("Dev: Now Max Acc: {:.6f}\n".format(max_dev_average_acc))
 
     # tmp check test set
-    test_acc, total_acc, total_loss = eval(loader=dev_dataset.get_paragraph(), loss_func=loss_func)
+    test_acc, total_acc, total_loss = eval(loader=test_dataset.get_paragraph(), loss_func=loss_func)
     test_average_acc = print_info(sign="Test", total_loss=total_loss, total_acc=total_acc, acc=test_acc, dataset=test_dataset)
 
     if test_average_acc > max_test_average_acc:
