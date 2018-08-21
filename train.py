@@ -16,15 +16,18 @@ GPU = torch.cuda.is_available()
 print("GPU available: ", GPU)
 
 # parameters
-# dataset = "EmotionPush"
-dataset = "Friends"
 mode = 4
-print("Now running dataset = {}, mode = {}".format(dataset, mode))
+print("Now mode = {}".format(mode))
 
-train_dir = "./data/{}_Proc/{}_seq_train.json".format(dataset, dataset.lower())
-dev_dir = "./data/{}_Proc/{}_seq_dev.json".format(dataset, dataset.lower())
-test_dir = "./data/{}_Proc/{}_seq_test.json".format(dataset, dataset.lower())
-word_vector_dir = "./data/{}_Proc/{}_word_vec.txt".format(dataset, dataset.lower())
+train_dir = "./data/Merge_Proc/merge_seq_train.json"
+
+friends_dev_dir = "./data/Merge_Proc/merge_seq_friends_dev.json"
+emotionpush_dev_dir = "./data/Merge_Proc/merge_seq_emotionpush_dev.json"
+
+friends_test_dir = "./data/Merge_Proc/merge_seq_friends_test.json"
+emotionpush_test_dir = "./data/Merge_Proc/merge_seq_emotionpush_test.json"
+
+word_vector_dir = "./data/Merge_Proc/merge_word_vec.txt"
 
 epoch_num = 100
 embedding_dim = 300
@@ -156,11 +159,19 @@ class EmotionDataSet(Dataset):
 train_dataset = EmotionDataSet(data_dir=train_dir)
 train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
-dev_dataset = EmotionDataSet(data_dir=dev_dir)
-dev_loader = DataLoader(dataset=dev_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
+friends_dev_dataset = EmotionDataSet(data_dir=friends_dev_dir)
+friends_dev_loader = DataLoader(dataset=friends_dev_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
+emotionpush_dev_dataset = EmotionDataSet(data_dir=emotionpush_dev_dir)
+emotionpush_dev_loader = DataLoader(dataset=emotionpush_dev_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
 
-test_dataset = EmotionDataSet(data_dir=test_dir)
-test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
+dev_dataset = [friends_dev_dataset, emotionpush_dev_dataset]
+
+friends_test_dataset = EmotionDataSet(data_dir=friends_test_dir)
+friends_test_loader = DataLoader(dataset=friends_test_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
+emotionpush_test_dataset = EmotionDataSet(data_dir=emotionpush_test_dir)
+emotionpush_test_loader = DataLoader(dataset=emotionpush_test_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
+
+test_dataset = [friends_test_dataset, emotionpush_test_dataset]
 
 vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
 
@@ -356,16 +367,17 @@ def print_info(sign, total_loss, total_acc, acc, dataset):
 # train & dev
 print("**********************************")
 print("train_dataset: ", train_dataset.emotion_num)
-print("dev_dataset: ", dev_dataset.emotion_num)
+print("friends_dev_dataset: ", friends_dev_dataset.emotion_num)
+print("emotionpush_dev_dataset: ", emotionpush_dev_dataset.emotion_num)
 
-max_dev_average_acc = 0
-max_dev_average_acc_model_state = model.state_dict()
+max_dev_average_acc = [0, 0]
+max_dev_average_acc_model_state = [model.state_dict(), model.state_dict()]
 
-max_test_average_acc = 0
-max_test_average_acc_model_state = model.state_dict()
+max_test_average_acc = [0, 0]
+max_test_average_acc_model_state = [model.state_dict(), model.state_dict()]
 
 for epoch in range(epoch_num):
-    print("----------------------------------")
+    print("==================================")
     print("epoch: {}".format(epoch))
 
     # train
@@ -376,41 +388,47 @@ for epoch in range(epoch_num):
 
     # dev
     model.eval()
-    # dev_acc, total_acc, total_loss = eval(loader=dev_loader, loss_func=loss_func)
-    dev_acc, total_acc, total_loss = eval(loader=dev_dataset.get_paragraph(), loss_func=loss_func)
-    dev_average_acc = print_info(sign="Dev", total_loss=total_loss, total_acc=total_acc, acc=dev_acc, dataset=dev_dataset)
 
-    if train_average_acc > 0.9:
-        if dev_average_acc > max_dev_average_acc:
-            max_dev_average_acc = dev_average_acc
-            max_dev_average_acc_model_state = model.state_dict()
-            print("### new max dev acc!\n")
-        else:
-            print("Dev: Now Max Acc: {:.6f}\n".format(max_dev_average_acc))
+    for dataset_index in range(2):
+        print("----------------------------------")
+        # dev_acc, total_acc, total_loss = eval(loader=dev_loader, loss_func=loss_func)
+        dev_acc, total_acc, total_loss = eval(loader=dev_dataset[dataset_index].get_paragraph(), loss_func=loss_func)
+        dev_average_acc = print_info(sign="Dev_{}".format(dataset_index),
+                                     total_loss=total_loss, total_acc=total_acc,
+                                     acc=dev_acc, dataset=dev_dataset[dataset_index])
 
-    # tmp check test set
-    test_acc, total_acc, total_loss = eval(loader=test_dataset.get_paragraph(), loss_func=loss_func)
-    test_average_acc = print_info(sign="Test", total_loss=total_loss, total_acc=total_acc, acc=test_acc, dataset=test_dataset)
+        if train_average_acc > 0.9:
+            if dev_average_acc > max_dev_average_acc[dataset_index]:
+                max_dev_average_acc[dataset_index] = dev_average_acc
+                max_dev_average_acc_model_state[dataset_index] = model.state_dict()
+                print("### new max dev acc!\n")
+            else:
+                print("Dev_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_dev_average_acc[dataset_index]))
 
-    if train_average_acc > 0.9:
-        if test_average_acc > max_test_average_acc:
-            max_test_average_acc = test_average_acc
-            max_test_average_acc_model_state = model.state_dict()
-            print("### new max test acc!\n")
-        else:
-            print("Test: Now Max Acc: {:.6f}\n".format(max_test_average_acc))
+        # tmp check test set
+        test_acc, total_acc, total_loss = eval(loader=test_dataset[dataset_index].get_paragraph(), loss_func=loss_func)
+        test_average_acc = print_info(sign="Test_{}".format(dataset_index),
+                                      total_loss=total_loss, total_acc=total_acc,
+                                      acc=test_acc, dataset=test_dataset[dataset_index])
 
-print("epoch = {} max dev acc = {:.6f}\n".format(epoch_num, max_dev_average_acc))
-print("epoch = {} max test acc = {:.6f}\n".format(epoch_num, max_test_average_acc))
+        if train_average_acc > 0.9:
+            if test_average_acc > max_test_average_acc[dataset_index]:
+                max_test_average_acc[dataset_index] = test_average_acc
+                max_test_average_acc_model_state[dataset_index] = model.state_dict()
+                print("### new max test acc!\n")
+            else:
+                print("Test_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_test_average_acc[dataset_index]))
+
 
 # test_eval
-print("**********************************")
-print("test_dataset: ", test_dataset.emotion_num)
+for index in range(2):
+    print("**********************************")
+    print("test_dataset_{}: ".format(index), test_dataset[index].emotion_num)
 
-# load max dev state
-model.load_state_dict(max_dev_average_acc_model_state)
+    # load max dev state
+    model.load_state_dict(max_dev_average_acc_model_state[index])
 
-test_acc, total_acc, total_loss = eval(loader=test_loader, loss_func=loss_func)
+    test_acc, total_acc, total_loss = eval(loader=test_dataset[index].get_paragraph(), loss_func=loss_func)
 
-print_info(sign="Test", total_loss=total_loss, total_acc=total_acc, acc=test_acc, dataset=test_dataset)
+    print_info(sign="Test", total_loss=total_loss, total_acc=total_acc, acc=test_acc, dataset=test_dataset[index])
 

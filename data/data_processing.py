@@ -175,7 +175,7 @@ def build_word_vec(save_dir, word_vec_dir):
 
 
 if __name__ == '__main__':
-    GloVe_dir = "D:/Documents/Python_Project/WordVector_Folder/glove.840B.300d.txt"
+    GloVe_dir = r"C:\Users\WangZilong\Documents\Python_Project\_Data_Files\glove.840B.300d.txt"
     DataSet = "Merge"
     DataSet_Tag = ["train", "test", "dev"]
 
@@ -184,14 +184,23 @@ if __name__ == '__main__':
     if DataSet != "Merge":
         for tag in DataSet_Tag:
             DataSet_json[tag] = get_precessed_data("./{}/{}_{}.json".format(DataSet, DataSet.lower(), tag))
-    else:
-        for tag in DataSet_Tag:
-            DataSet_json[tag] = get_precessed_data("./Friends/friends_{}.json".format(tag)) + \
-                                get_precessed_data("./EmotionPush/emotionpush_{}.json".format(tag))
 
-    for tag in DataSet_Tag:
-        data_seq_json = get_data_sequence(DataSet_json[tag])
-        json.dump(data_seq_json, open("./{}_Proc/{}_seq_{}.json".format(DataSet, DataSet.lower(), tag),
-                                      "w", encoding="utf-8"))
+        for tag in DataSet_Tag:
+            data_seq_json = get_data_sequence(DataSet_json[tag])
+            json.dump(data_seq_json, open("./{}_Proc/{}_seq_{}.json".format(DataSet, DataSet.lower(), tag),
+                                          "w", encoding="utf-8"))
+
+    else:
+        DataSet_json["train"] = get_precessed_data("./Friends/friends_train.json") + \
+                                get_precessed_data("./EmotionPush/emotionpush_train.json")
+
+        for tag in ["test", "dev"]:
+            DataSet_json["friends_" + tag] = get_precessed_data("./Friends/friends_{}.json".format(tag))
+            DataSet_json["emotionpush_" + tag] = get_precessed_data("./EmotionPush/emotionpush_{}.json".format(tag))
+
+        for tag in DataSet_json:
+            data_seq_json = get_data_sequence(DataSet_json[tag])
+            json.dump(data_seq_json, open("./{}_Proc/{}_seq_{}.json".format(DataSet, DataSet.lower(), tag),
+                                          "w", encoding="utf-8"))
 
     build_word_vec("./{}_Proc/{}_word_vec.txt".format(DataSet, DataSet.lower()), GloVe_dir)
