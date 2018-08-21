@@ -12,7 +12,8 @@ from Attention_Net import TransformerEncoder_BiLSTM
 from Attention_Net import BiLSTM_TransformerEncoder
 from Attention_Net import BiLSTM_Attention
 
-print("GPU available: ", torch.cuda.is_available())
+GPU = torch.cuda.is_available()
+print("GPU available: ", GPU)
 
 # parameters
 # dataset = "EmotionPush"
@@ -29,7 +30,7 @@ epoch_num = 100
 embedding_dim = 300
 hidden_dim = 300
 fc_dim = 128
-batch_size = 3
+batch_size = 128
 gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
@@ -163,13 +164,13 @@ test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=Fa
 
 vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
 
-# model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
-#                       hidden_dim=hidden_dim,
-#                       fc_dim=fc_dim,
-#                       vocab_size=vocab_size,
-#                       tagset_size=target_size,
-#                       word_vec_matrix=word_vec_matrix,
-#                       dropout=dropout_rate)
+model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
+                      hidden_dim=hidden_dim,
+                      fc_dim=fc_dim,
+                      vocab_size=vocab_size,
+                      tagset_size=target_size,
+                      word_vec_matrix=word_vec_matrix,
+                      dropout=dropout_rate)
 
 # model = TransformerEncoder_BiLSTM(encoder_vocab_size=vocab_size,
 #                                   encoder_sentence_length=max(train_dataset.max_sentence_length,
@@ -211,16 +212,16 @@ vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
 # self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout,
 #                  model_dim, max_paragraph_len):
 
-model = BiLSTM_Attention(embedding_dim=embedding_dim,
-                         hidden_dim=hidden_dim,
-                         fc_dim=fc_dim,
-                         vocab_size=vocab_size,
-                         tagset_size=target_size,
-                         word_vec_matrix=word_vec_matrix,
-                         dropout=dropout_rate,
-                         max_paragraph_len=max(train_dataset.max_paragraph_length,
-                                               dev_dataset.max_paragraph_length,
-                                               test_dataset.max_paragraph_length))
+# model = BiLSTM_Attention(embedding_dim=embedding_dim,
+#                          hidden_dim=hidden_dim,
+#                          fc_dim=fc_dim,
+#                          vocab_size=vocab_size,
+#                          tagset_size=target_size,
+#                          word_vec_matrix=word_vec_matrix,
+#                          dropout=dropout_rate,
+#                          max_paragraph_len=max(train_dataset.max_paragraph_length,
+#                                                dev_dataset.max_paragraph_length,
+#                                                test_dataset.max_paragraph_length))
 
 if GPU:
     model.cuda()
@@ -246,26 +247,21 @@ def train(loader, optimizer, loss_func):
     total_acc = 0.
     total_loss = 0.
     for batch_times, (word_seq, seq_len, label) in enumerate(loader):
-        # if batch_times % 20 == 0:
-        #     print("Sentences: ", batch_times * batch_size)
+        if batch_times % 100 == 0:
+            print("Sentences: ", batch_times * batch_size)
 
-<<<<<<< HEAD
-        sentence_in = (batch_x.cuda(), batch_x_len.cuda())
-        targets = batch_y.cuda()
-=======
         if GPU:
             word_seq = word_seq.cuda()
             seq_len = seq_len.cuda()
             label = label.cuda()
 
         targets = label
->>>>>>> transformer_sentence_encoder
 
         tag_scores = model((word_seq, seq_len))
 
         pred = torch.max(tag_scores, 1)[1]
 
-        total_acc += (pred == targets).sum()
+        total_acc += float((pred == targets).sum())
 
         for i in range(len(pred)):
             if pred[i] == targets[i]:
@@ -273,7 +269,7 @@ def train(loader, optimizer, loss_func):
 
         loss = loss_func(tag_scores, targets)
 
-        total_loss += loss
+        total_loss += float(loss)
 
         # backward
         optimizer.zero_grad()
@@ -310,12 +306,6 @@ def eval(loader, loss_func):
     acc = {i: 0. for i in range(target_size)}
     total_acc = 0.
     total_loss = 0.
-<<<<<<< HEAD
-    for batch_x, batch_x_len, batch_y in loader:
-
-        sentence_in = (batch_x.cuda(), batch_x_len.cuda())
-        targets = batch_y.cuda()
-=======
     for word_seq, seq_len, label in loader:
         if GPU:
             word_seq = word_seq.cuda()
@@ -323,13 +313,12 @@ def eval(loader, loss_func):
             label = label.cuda()
 
         targets = label
->>>>>>> transformer_sentence_encoder
 
         tag_scores = model((word_seq, seq_len))
 
         pred = torch.max(tag_scores, 1)[1]
 
-        total_acc += (pred == targets).sum()
+        total_acc += float((pred == targets).sum())
 
         for i in range(len(pred)):
             if pred[i] == targets[i]:
@@ -340,7 +329,7 @@ def eval(loader, loss_func):
     return acc, total_acc, total_loss
 
 def print_info(sign, total_loss, total_acc, acc, dataset):
-    print("{}: Loss: {:.6f}, Acc: {:.6f}".format(sign, total_loss / (len(dataset)), total_acc.float() / (len(dataset))))
+    print("{}: Loss: {:.6f}, Acc: {:.6f}".format(sign, total_loss / (len(dataset)), total_acc / (len(dataset))))
 
     eval = [acc[i] / dataset.emotion_num[i] for i in range(mode)]
 
@@ -364,29 +353,6 @@ def print_info(sign, total_loss, total_acc, acc, dataset):
 
     return average_acc
 
-<<<<<<< HEAD
-vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
-
-model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
-                      hidden_dim=hidden_dim,
-                      fc_dim=fc_dim,
-                      vocab_size=vocab_size,
-                      tagset_size=target_size,
-                      word_vec_matrix=word_vec_matrix,
-                      dropout=dropout_rate).cuda()
-
-print(model)
-
-weight = torch.Tensor(target_size).cuda().float().fill_(0.)
-for i in range(mode):
-    weight[i] = 100. / train_dataset.emotion_num[i]
-
-
-optimizer = optim.Adam(model.parameters(), lr=0.001)
-loss_func = nn.CrossEntropyLoss(weight=weight)
-
-=======
->>>>>>> transformer_sentence_encoder
 # train & dev
 print("**********************************")
 print("train_dataset: ", train_dataset.emotion_num)
@@ -406,7 +372,7 @@ for epoch in range(epoch_num):
     model.train()
     # train_acc, total_acc, total_loss = train(loader=train_loader, loss_func=loss_func, optimizer=optimizer)
     train_acc, total_acc, total_loss = train(loader=train_dataset.get_paragraph(), loss_func=loss_func, optimizer=optimizer)
-    print_info(sign="Train", total_loss=total_loss, total_acc=total_acc, acc=train_acc, dataset=train_dataset)
+    train_average_acc = print_info(sign="Train", total_loss=total_loss, total_acc=total_acc, acc=train_acc, dataset=train_dataset)
 
     # dev
     model.eval()
@@ -414,23 +380,25 @@ for epoch in range(epoch_num):
     dev_acc, total_acc, total_loss = eval(loader=dev_dataset.get_paragraph(), loss_func=loss_func)
     dev_average_acc = print_info(sign="Dev", total_loss=total_loss, total_acc=total_acc, acc=dev_acc, dataset=dev_dataset)
 
-    if dev_average_acc > max_dev_average_acc:
-        max_dev_average_acc = dev_average_acc
-        max_dev_average_acc_model_state = model.state_dict()
-        print("### new max dev acc!\n")
-    else:
-        print("Dev: Now Max Acc: {:.6f}\n".format(max_dev_average_acc))
+    if train_average_acc > 0.9:
+        if dev_average_acc > max_dev_average_acc:
+            max_dev_average_acc = dev_average_acc
+            max_dev_average_acc_model_state = model.state_dict()
+            print("### new max dev acc!\n")
+        else:
+            print("Dev: Now Max Acc: {:.6f}\n".format(max_dev_average_acc))
 
     # tmp check test set
     test_acc, total_acc, total_loss = eval(loader=test_dataset.get_paragraph(), loss_func=loss_func)
     test_average_acc = print_info(sign="Test", total_loss=total_loss, total_acc=total_acc, acc=test_acc, dataset=test_dataset)
 
-    if test_average_acc > max_test_average_acc:
-        max_test_average_acc = test_average_acc
-        max_test_average_acc_model_state = model.state_dict()
-        print("### new max test acc!\n")
-    else:
-        print("Test: Now Max Acc: {:.6f}\n".format(max_test_average_acc))
+    if train_average_acc > 0.9:
+        if test_average_acc > max_test_average_acc:
+            max_test_average_acc = test_average_acc
+            max_test_average_acc_model_state = model.state_dict()
+            print("### new max test acc!\n")
+        else:
+            print("Test: Now Max Acc: {:.6f}\n".format(max_test_average_acc))
 
 print("epoch = {} max dev acc = {:.6f}\n".format(epoch_num, max_dev_average_acc))
 print("epoch = {} max test acc = {:.6f}\n".format(epoch_num, max_test_average_acc))

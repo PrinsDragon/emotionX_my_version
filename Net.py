@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 # Net
@@ -68,29 +69,17 @@ class BiLSTM_BiLSTM(nn.Module):
             nn.Linear(fc_dim, tagset_size)
         )
 
+        self.qa_score_linear = nn.Sequential(
+            nn.Linear(2*embedding_dim*4, 100),
+            nn.Linear(100, 1)
+        )
+
     def forward(self, sentence_tuple):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
-        sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
-        tag_space = self.classifier(sent_lstm_out.view(sent_lstm_out.shape[1], -1))
+        sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(len(sentence_encoder_out), 1, -1))
+        tag_space = self.classifier(sent_lstm_out.view(len(sent_lstm_out), -1))
         return tag_space
 
-<<<<<<< HEAD
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-=======
     def question_answer_score(self, question_tensor, answer_tensor):
         # abs_part = torch.abs(question_tensor - answer_tensor)
         # multiply_part = question_tensor * answer_tensor
@@ -146,4 +135,3 @@ class BiLSTM_BiLSTM(nn.Module):
         print("answer loss: {}".format(float(loss)))
 
         return loss
->>>>>>> transformer_sentence_encoder
