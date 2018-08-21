@@ -29,7 +29,7 @@ epoch_num = 100
 embedding_dim = 300
 hidden_dim = 300
 fc_dim = 128
-batch_size = 128
+batch_size = 3
 gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
@@ -163,13 +163,13 @@ test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=Fa
 
 vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
 
-model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
-                      hidden_dim=hidden_dim,
-                      fc_dim=fc_dim,
-                      vocab_size=vocab_size,
-                      tagset_size=target_size,
-                      word_vec_matrix=word_vec_matrix,
-                      dropout=dropout_rate)
+# model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
+#                       hidden_dim=hidden_dim,
+#                       fc_dim=fc_dim,
+#                       vocab_size=vocab_size,
+#                       tagset_size=target_size,
+#                       word_vec_matrix=word_vec_matrix,
+#                       dropout=dropout_rate)
 
 # model = TransformerEncoder_BiLSTM(encoder_vocab_size=vocab_size,
 #                                   encoder_sentence_length=max(train_dataset.max_sentence_length,
@@ -211,16 +211,16 @@ model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
 # self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout,
 #                  model_dim, max_paragraph_len):
 
-# model = BiLSTM_Attention(embedding_dim=embedding_dim,
-#                          hidden_dim=hidden_dim,
-#                          fc_dim=fc_dim,
-#                          vocab_size=vocab_size,
-#                          tagset_size=target_size,
-#                          word_vec_matrix=word_vec_matrix,
-#                          dropout=dropout_rate,
-#                          max_paragraph_len=max(train_dataset.max_paragraph_length,
-#                                                dev_dataset.max_paragraph_length,
-#                                                test_dataset.max_paragraph_length))
+model = BiLSTM_Attention(embedding_dim=embedding_dim,
+                         hidden_dim=hidden_dim,
+                         fc_dim=fc_dim,
+                         vocab_size=vocab_size,
+                         tagset_size=target_size,
+                         word_vec_matrix=word_vec_matrix,
+                         dropout=dropout_rate,
+                         max_paragraph_len=max(train_dataset.max_paragraph_length,
+                                               dev_dataset.max_paragraph_length,
+                                               test_dataset.max_paragraph_length))
 
 if GPU:
     model.cuda()
@@ -246,8 +246,8 @@ def train(loader, optimizer, loss_func):
     total_acc = 0.
     total_loss = 0.
     for batch_times, (word_seq, seq_len, label) in enumerate(loader):
-        if batch_times % 100 == 0:
-            print("Sentences: ", batch_times * batch_size)
+        # if batch_times % 20 == 0:
+        #     print("Sentences: ", batch_times * batch_size)
 
 <<<<<<< HEAD
         sentence_in = (batch_x.cuda(), batch_x_len.cuda())
@@ -406,7 +406,7 @@ for epoch in range(epoch_num):
     model.train()
     # train_acc, total_acc, total_loss = train(loader=train_loader, loss_func=loss_func, optimizer=optimizer)
     train_acc, total_acc, total_loss = train(loader=train_dataset.get_paragraph(), loss_func=loss_func, optimizer=optimizer)
-    train_average_acc = print_info(sign="Train", total_loss=total_loss, total_acc=total_acc, acc=train_acc, dataset=train_dataset)
+    print_info(sign="Train", total_loss=total_loss, total_acc=total_acc, acc=train_acc, dataset=train_dataset)
 
     # dev
     model.eval()
@@ -414,25 +414,23 @@ for epoch in range(epoch_num):
     dev_acc, total_acc, total_loss = eval(loader=dev_dataset.get_paragraph(), loss_func=loss_func)
     dev_average_acc = print_info(sign="Dev", total_loss=total_loss, total_acc=total_acc, acc=dev_acc, dataset=dev_dataset)
 
-    if train_average_acc > 0.9:
-        if dev_average_acc > max_dev_average_acc:
-            max_dev_average_acc = dev_average_acc
-            max_dev_average_acc_model_state = model.state_dict()
-            print("### new max dev acc!\n")
-        else:
-            print("Dev: Now Max Acc: {:.6f}\n".format(max_dev_average_acc))
+    if dev_average_acc > max_dev_average_acc:
+        max_dev_average_acc = dev_average_acc
+        max_dev_average_acc_model_state = model.state_dict()
+        print("### new max dev acc!\n")
+    else:
+        print("Dev: Now Max Acc: {:.6f}\n".format(max_dev_average_acc))
 
     # tmp check test set
     test_acc, total_acc, total_loss = eval(loader=test_dataset.get_paragraph(), loss_func=loss_func)
     test_average_acc = print_info(sign="Test", total_loss=total_loss, total_acc=total_acc, acc=test_acc, dataset=test_dataset)
 
-    if train_average_acc > 0.9:
-        if test_average_acc > max_test_average_acc:
-            max_test_average_acc = test_average_acc
-            max_test_average_acc_model_state = model.state_dict()
-            print("### new max test acc!\n")
-        else:
-            print("Test: Now Max Acc: {:.6f}\n".format(max_test_average_acc))
+    if test_average_acc > max_test_average_acc:
+        max_test_average_acc = test_average_acc
+        max_test_average_acc_model_state = model.state_dict()
+        print("### new max test acc!\n")
+    else:
+        print("Test: Now Max Acc: {:.6f}\n".format(max_test_average_acc))
 
 print("epoch = {} max dev acc = {:.6f}\n".format(epoch_num, max_dev_average_acc))
 print("epoch = {} max test acc = {:.6f}\n".format(epoch_num, max_test_average_acc))
