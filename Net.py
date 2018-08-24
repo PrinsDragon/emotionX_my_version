@@ -81,15 +81,15 @@ class BiLSTM_BiLSTM(nn.Module):
         return tag_space
 
     def question_answer_score(self, question_tensor, answer_tensor):
-        # abs_part = torch.abs(question_tensor - answer_tensor)
-        # multiply_part = question_tensor * answer_tensor
-        # cat_tensor = torch.cat([question_tensor, answer_tensor, abs_part, multiply_part], 0)
-        # score = self.qa_score_linear(cat_tensor)
-        # return score
-        question_matrix = question_tensor.view(1, -1)
-        answer_matrix = answer_tensor.view(1, -1)
-
-        return torch.mm(question_matrix, answer_matrix.t()).view([])
+        abs_part = torch.abs(question_tensor - answer_tensor)
+        multiply_part = question_tensor * answer_tensor
+        cat_tensor = torch.cat([question_tensor, answer_tensor, abs_part, multiply_part], 0)
+        score = self.qa_score_linear(cat_tensor)
+        return score
+        # question_matrix = question_tensor.view(1, -1)
+        # answer_matrix = answer_tensor.view(1, -1)
+        #
+        # return torch.mm(question_matrix, answer_matrix.t()).view([])
 
     # multitask loss
     def get_loss(self, sentence_tuple, emotion_loss_func, targets):
@@ -99,7 +99,7 @@ class BiLSTM_BiLSTM(nn.Module):
         tag_space = self.classifier(sent_lstm_out.view(len(sent_lstm_out), -1))
         emotion_loss = emotion_loss_func(tag_space, targets)
 
-        return emotion_loss
+        # return emotion_loss
 
         # self.loss = tf.reduce_mean(tf.nn.relu(1 + self.qa_score_1 - self.qa_score_2)
         sentence_num = len(sentence_encoder_out)

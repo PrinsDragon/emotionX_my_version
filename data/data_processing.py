@@ -173,6 +173,18 @@ def build_word_vec(save_dir, word_vec_dir):
 
     print("Found {}/{} words with glove vectors".format(found_num, len(word_dictionary)))
 
+def save_word_id(save_dir):
+    print("Start Save Word ID ...")
+    save_file = open(save_dir, "w", encoding="utf-8")
+
+    save_file.write(str(len(word_dictionary)) + "\n")
+
+    for word in word_dictionary:
+        word_id = word_dictionary[word]
+        save_file.write("{} {}\n".format(word_id, word))
+
+    print("Finish Save Word ID !")
+
 
 if __name__ == '__main__':
     GloVe_dir = r"C:\Users\WangZilong\Documents\Python_Project\_Data_Files\glove.840B.300d.txt"
@@ -204,3 +216,4 @@ if __name__ == '__main__':
                                           "w", encoding="utf-8"))
 
     build_word_vec("./{}_Proc/{}_word_vec.txt".format(DataSet, DataSet.lower()), GloVe_dir)
+    save_word_id("./{}_Proc/{}_word_id.txt".format(DataSet, DataSet.lower()))

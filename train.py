@@ -54,7 +54,7 @@ def build_word_vec_matrix(word_vec_dir):
             word_num = int(line)+1
             word_vec_matrix = 0.5 * np.random.random_sample((word_num, embedding_dim)) - 0.25
             word_vec_matrix[0] = 0
-            #np.zeros((word_num, embedding_dim))
+            # np.zeros((word_num, embedding_dim))
             continue
         try:
             id, vec = line.split(' ', 1)
@@ -88,7 +88,7 @@ class EmotionDataSet(Dataset):
         data_file = open(data_dir)
         data = json.load(data_file)
 
-        # self.sentences = []
+        self.sentences = []
         self.paragraphs = []
         self.max_sentence_length = 0
         self.max_paragraph_length = 0
@@ -99,12 +99,11 @@ class EmotionDataSet(Dataset):
             for j in range(0, len(data[i])):
                 name = data[i][j]["speaker"]
                 seq = torch.LongTensor(list(map(int, data[i][j]["utterance"].split())))
-                # text = data[i][j]["utterance"].split(" ")
                 label = int(data[i][j]["emotion"])
 
                 self.emotion_num[label] += 1
                 self.max_sentence_length = max(self.max_sentence_length, len(seq))
-                # self.sentences.append(Sentence(name=name, seq=seq, label=label))
+                self.sentences.append(Sentence(name=name, seq=seq, label=label))
                 para.append(Sentence(name=name, seq=seq, label=label))
 
             self.max_paragraph_length = max(self.max_paragraph_length, len(para))
@@ -118,32 +117,22 @@ class EmotionDataSet(Dataset):
                 sent.extend(self.max_sentence_length)
 
         self.paragraphs_num = len(self.paragraphs)
-        # self.sentences_num = self.sentences.__len__()
+        self.sentences_num = len(self.sentences)
 
     def __getitem__(self, index):
         # return self.sentences[index].seq, \
         #        self.sentences[index].pos_seq, \
         #        self.sentences[index].label
 
-        # return self.sentences[index].seq, self.sentences[index].seq_len, self.sentences[index].label
+        return self.sentences[index].seq, self.sentences[index].seq_len, self.sentences[index].label
 
-        return ([sent.seq for sent in self.paragraphs[index]],
-                [sent.seq_len for sent in self.paragraphs[index]],
-                [sent.label for sent in self.paragraphs[index]])
+        # return ([sent.seq for sent in self.paragraphs[index]],
+        #         [sent.seq_len for sent in self.paragraphs[index]],
+        #         [sent.label for sent in self.paragraphs[index]])
 
     def __len__(self):
         # return self.sentences_num
         return self.paragraphs_num
-
-    # def get_batch(self, batch_size):
-    #     p = 0
-    #     while True:
-    #         yield [[sent.seq for sent in self.paragraphs[i]] for i in range(p, p+batch_size)], \
-    #               [[sent.seq_len for sent in self.paragraphs[i]] for i in range(p, p+batch_size)], \
-    #               [[sent.label for sent in self.paragraphs[i]] for i in range(p, p+batch_size)]
-    #         p = p + batch_size
-    #         if p+batch_size > self.paragraphs_num:
-    #             break
 
     def get_paragraph(self):
         for para in self.paragraphs:
@@ -165,6 +154,7 @@ emotionpush_dev_dataset = EmotionDataSet(data_dir=emotionpush_dev_dir)
 emotionpush_dev_loader = DataLoader(dataset=emotionpush_dev_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
 
 dev_dataset = [friends_dev_dataset, emotionpush_dev_dataset]
+dev_loader = [friends_dev_loader, emotionpush_dev_loader]
 
 friends_test_dataset = EmotionDataSet(data_dir=friends_test_dir)
 friends_test_loader = DataLoader(dataset=friends_test_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
@@ -172,6 +162,7 @@ emotionpush_test_dataset = EmotionDataSet(data_dir=emotionpush_test_dir)
 emotionpush_test_loader = DataLoader(dataset=emotionpush_test_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
 
 test_dataset = [friends_test_dataset, emotionpush_test_dataset]
+test_loader = [friends_test_loader, emotionpush_test_loader]
 
 vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
 
@@ -255,7 +246,6 @@ def train(loader, optimizer, loss_func):
     model.train()
 
     train_acc = {i: 0. for i in range(target_size)}
-    total_acc = 0.
     total_loss = 0.
     for batch_times, (word_seq, seq_len, label) in enumerate(loader):
         if batch_times % 100 == 0:
@@ -271,8 +261,6 @@ def train(loader, optimizer, loss_func):
         tag_scores = model((word_seq, seq_len))
 
         pred = torch.max(tag_scores, 1)[1]
-
-        total_acc += float((pred == targets).sum())
 
         for i in range(len(pred)):
             if pred[i] == targets[i]:
@@ -309,13 +297,14 @@ def train(loader, optimizer, loss_func):
         optimizer.step()
         optimizer.param_groups[0]['lr'] = current_lr
 
+    total_acc = sum(train_acc[i] for i in range(mode))
+
     return train_acc, total_acc, total_loss
 
 def eval(loader, loss_func):
     model.eval()
 
     acc = {i: 0. for i in range(target_size)}
-    total_acc = 0.
     total_loss = 0.
     for word_seq, seq_len, label in loader:
         if GPU:
@@ -329,18 +318,19 @@ def eval(loader, loss_func):
 
         pred = torch.max(tag_scores, 1)[1]
 
-        total_acc += float((pred == targets).sum())
-
         for i in range(len(pred)):
             if pred[i] == targets[i]:
                 acc[int(targets[i])] += 1
 
         total_loss += loss_func(tag_scores, targets)
 
+    total_acc = sum(acc[i] for i in range(mode))
+
     return acc, total_acc, total_loss
 
 def print_info(sign, total_loss, total_acc, acc, dataset):
-    print("{}: Loss: {:.6f}, Acc: {:.6f}".format(sign, total_loss / (len(dataset)), total_acc / (len(dataset))))
+    dataset_size = sum(dataset.emotion_num[i] for i in range(mode))
+    print("{}: Loss: {:.6f}, Acc: {:.6f}".format(sign, total_loss / dataset_size, total_acc / dataset_size))
 
     eval = [acc[i] / dataset.emotion_num[i] for i in range(mode)]
 
@@ -391,7 +381,7 @@ for epoch in range(epoch_num):
 
     for dataset_index in range(2):
         print("----------------------------------")
-        # dev_acc, total_acc, total_loss = eval(loader=dev_loader, loss_func=loss_func)
+        # dev_acc, total_acc, total_loss = eval(loader=dev_loader[dataset_index], loss_func=loss_func)
         dev_acc, total_acc, total_loss = eval(loader=dev_dataset[dataset_index].get_paragraph(), loss_func=loss_func)
         dev_average_acc = print_info(sign="Dev_{}".format(dataset_index),
                                      total_loss=total_loss, total_acc=total_acc,
@@ -406,6 +396,7 @@ for epoch in range(epoch_num):
                 print("Dev_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_dev_average_acc[dataset_index]))
 
         # tmp check test set
+        # test_acc, total_acc, total_loss = eval(loader=test_loader[dataset_index], loss_func=loss_func)
         test_acc, total_acc, total_loss = eval(loader=test_dataset[dataset_index].get_paragraph(), loss_func=loss_func)
         test_average_acc = print_info(sign="Test_{}".format(dataset_index),
                                       total_loss=total_loss, total_acc=total_acc,
@@ -428,6 +419,7 @@ for index in range(2):
     # load max dev state
     model.load_state_dict(max_dev_average_acc_model_state[index])
 
+    # test_acc, total_acc, total_loss = eval(loader=test_loader[index], loss_func=loss_func)
     test_acc, total_acc, total_loss = eval(loader=test_dataset[index].get_paragraph(), loss_func=loss_func)
 
     print_info(sign="Test", total_loss=total_loss, total_acc=total_acc, acc=test_acc, dataset=test_dataset[index])
