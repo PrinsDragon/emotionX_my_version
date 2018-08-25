@@ -266,7 +266,13 @@ def train(loader, optimizer, loss_func):
             if pred[i] == targets[i]:
                 train_acc[int(targets[i])] += 1
 
-        loss = loss_func(tag_scores, targets)
+        # loss = loss_func(tag_scores, targets)
+        loss, emotion_loss, qa_loss = model.get_loss(sentence_tuple=(word_seq, seq_len),
+                                                     emotion_loss_func=loss_func,
+                                                     targets=targets)
+
+        if batch_times % 100 == 0:
+            print("emotion loss: {:.3f} answer loss: {:.3f}".format(float(emotion_loss), float(qa_loss)))
 
         total_loss += float(loss)
 
@@ -410,6 +416,11 @@ for epoch in range(epoch_num):
             else:
                 print("Test_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_test_average_acc[dataset_index]))
 
+torch.save(max_dev_average_acc_model_state[0], "friends_max_dev_average_acc_model.pkl")
+torch.save(max_dev_average_acc_model_state[1], "emotionpush_max_dev_average_acc_model.pkl")
+
+torch.save(max_test_average_acc_model_state[0], "friends_max_test_average_acc_model.pkl")
+torch.save(max_test_average_acc_model_state[1], "emotionpush_max_test_average_acc_model.pkl")
 
 # test_eval
 for index in range(2):

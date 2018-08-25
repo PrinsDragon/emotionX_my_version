@@ -127,11 +127,10 @@ class BiLSTM_BiLSTM(nn.Module):
         batch_loss_sum = sum(batch_loss)
         batch_loss_mean = batch_loss_sum / len(batch_loss)
 
-        # loss = emotion_loss + batch_loss_mean
-
+        loss = emotion_loss + batch_loss_mean
         # print("emotion loss: {:.3f} answer loss: {:.3f}".format(float(emotion_loss), float(batch_loss_mean)))
 
-        loss = batch_loss_mean
-        print("answer loss: {}".format(float(loss)))
+        # loss = batch_loss_mean
+        # print("answer loss: {:.6f}".format(float(loss)))
 
-        return loss
+        return loss, emotion_loss, batch_loss_mean
