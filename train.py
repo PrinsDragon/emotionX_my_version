@@ -33,9 +33,11 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-TAG = "epoc={}_{}".format(epoch_num, "not_shuffle+bilstm+qa+check")
+TAG = "epoc={}_{}".format(epoch_num, "not_shuffle+bilstmx2+qa")
+TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
 print(TAG)
+print(TIME)
 
 train_dir = "./data/Merge_Proc/merge_seq_train.json"
 
@@ -179,7 +181,7 @@ word_id_dict = read_word_id(word_id_dir)
 
 vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
 
-save_file = open("mistake_sent.vstxt", "w", encoding="utf-8")
+save_file = open("{}_mistake_sent_{}.vstxt".format(TIME, TAG), "w", encoding="utf-8")
 
 model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
                       hidden_dim=hidden_dim,
@@ -344,7 +346,7 @@ def eval(loader, loss_func, save_flag=False):
             if pred[i] == targets[i]:
                 acc[int(targets[i])] += 1
             else:
-                if save_flag:
+                if save_flag and targets[i] < 4:
                     save_file.write(ori_sentence(word_seq[i], word_id_dict))
 
         total_loss += loss_func(tag_scores, targets)
@@ -436,7 +438,7 @@ for epoch in range(epoch_num):
                 print("Test_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_test_average_acc[dataset_index]))
 
 # test_eval
-test_acc = [0, 0]
+test_average_acc = [0., 0.]
 for index in range(2):
     print("**********************************")
     print("test_dataset_{}: ".format(index), test_dataset[index].emotion_num)
@@ -446,14 +448,13 @@ for index in range(2):
     model.eval()
 
     # test_acc, total_acc, total_loss = eval(loader=test_loader[index], loss_func=loss_func)
-    test_acc[index], total_acc, total_loss = eval(loader=test_dataset[index].get_paragraph(), loss_func=loss_func, save_flag=True)
+    test_acc, total_acc, total_loss = eval(loader=test_dataset[index].get_paragraph(), loss_func=loss_func, save_flag=True)
 
-    print_info(sign="Test_{}".format(index), total_loss=total_loss,
-               total_acc=total_acc, acc=test_acc[index], dataset=test_dataset[index])
+    test_average_acc[index] = print_info(sign="Test_{}".format(index), total_loss=total_loss,
+                                         total_acc=total_acc, acc=test_acc, dataset=test_dataset[index])
 
 # save
-save_dir = "./data/{}_checkpoint_{}_fri={:.3f}_emp={:.3f}/".format(time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time())),
-                                                                   TAG, test_acc[0], test_acc[1])
+save_dir = "./data/{}_checkpoint_{}_fri={:.3f}_emp={:.3f}/".format(TIME, TAG, test_average_acc[0], test_average_acc[1])
 try:
     os.makedirs(save_dir)
 except:
