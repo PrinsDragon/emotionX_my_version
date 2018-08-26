@@ -4,6 +4,7 @@ import json
 import random
 import time
 import os
+import copy
 
 from data.word_id_helper import read_word_id, ori_sentence
 
@@ -417,7 +418,7 @@ for epoch in range(epoch_num):
         if train_average_acc > 0.9:
             if dev_average_acc > max_dev_average_acc[dataset_index]:
                 max_dev_average_acc[dataset_index] = dev_average_acc
-                max_dev_average_acc_model_state[dataset_index] = model.state_dict()
+                max_dev_average_acc_model_state[dataset_index] = copy.deepcopy(model.state_dict())
                 print("### new max dev acc!\n")
             else:
                 print("Dev_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_dev_average_acc[dataset_index]))
@@ -432,7 +433,7 @@ for epoch in range(epoch_num):
         if train_average_acc > 0.9:
             if test_average_acc > max_test_average_acc[dataset_index]:
                 max_test_average_acc[dataset_index] = test_average_acc
-                max_test_average_acc_model_state[dataset_index] = model.state_dict()
+                max_test_average_acc_model_state[dataset_index] = copy.deepcopy(model.state_dict())
                 print("### new max test acc!\n")
             else:
                 print("Test_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_test_average_acc[dataset_index]))
