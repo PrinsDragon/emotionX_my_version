@@ -177,8 +177,6 @@ def save_word_id(save_dir):
     print("Start Save Word ID ...")
     save_file = open(save_dir, "w", encoding="utf-8")
 
-    save_file.write(str(len(word_dictionary)) + "\n")
-
     for word in word_dictionary:
         word_id = word_dictionary[word]
         save_file.write("{} {}\n".format(word_id, word))

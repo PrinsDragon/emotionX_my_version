@@ -2,6 +2,10 @@
 
 import json
 import random
+import time
+import os
+
+from data.word_id_helper import read_word_id, ori_sentence
 
 import numpy as np
 import torch
@@ -20,16 +24,6 @@ print("GPU available: ", GPU)
 mode = 4
 print("Now mode = {}".format(mode))
 
-train_dir = "./data/Merge_Proc/merge_seq_train.json"
-
-friends_dev_dir = "./data/Merge_Proc/merge_seq_friends_dev.json"
-emotionpush_dev_dir = "./data/Merge_Proc/merge_seq_emotionpush_dev.json"
-
-friends_test_dir = "./data/Merge_Proc/merge_seq_friends_test.json"
-emotionpush_test_dir = "./data/Merge_Proc/merge_seq_emotionpush_test.json"
-
-word_vector_dir = "./data/Merge_Proc/merge_word_vec.txt"
-
 epoch_num = 50
 embedding_dim = 300
 hidden_dim = 300
@@ -39,7 +33,20 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-print("epoch_num: ", epoch_num)
+TAG = "epoc={}_{}".format(epoch_num, "not_shuffle+bilstm+qa+check")
+
+print(TAG)
+
+train_dir = "./data/Merge_Proc/merge_seq_train.json"
+
+friends_dev_dir = "./data/Merge_Proc/merge_seq_friends_dev.json"
+emotionpush_dev_dir = "./data/Merge_Proc/merge_seq_emotionpush_dev.json"
+
+friends_test_dir = "./data/Merge_Proc/merge_seq_friends_test.json"
+emotionpush_test_dir = "./data/Merge_Proc/merge_seq_emotionpush_test.json"
+
+word_vector_dir = "./data/Merge_Proc/merge_word_vec.txt"
+word_id_dir = "./data/Merge_Proc/merge_word_id.txt"
 
 # Data
 
@@ -117,7 +124,7 @@ class EmotionDataSet(Dataset):
             for sent in para:
                 sent.extend(self.max_sentence_length)
 
-            random.shuffle(para)
+            # random.shuffle(para)
 
         self.paragraphs_num = len(self.paragraphs)
         self.sentences_num = len(self.sentences)
@@ -168,7 +175,11 @@ emotionpush_test_loader = DataLoader(dataset=emotionpush_test_dataset, batch_siz
 test_dataset = [friends_test_dataset, emotionpush_test_dataset]
 test_loader = [friends_test_loader, emotionpush_test_loader]
 
+word_id_dict = read_word_id(word_id_dir)
+
 vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
+
+save_file = open("mistake_sent.vstxt", "w", encoding="utf-8")
 
 model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
                       hidden_dim=hidden_dim,
@@ -312,7 +323,7 @@ def train(loader, optimizer, loss_func):
 
     return train_acc, total_acc, total_loss
 
-def eval(loader, loss_func):
+def eval(loader, loss_func, save_flag=False):
     model.eval()
 
     acc = {i: 0. for i in range(target_size)}
@@ -332,6 +343,9 @@ def eval(loader, loss_func):
         for i in range(len(pred)):
             if pred[i] == targets[i]:
                 acc[int(targets[i])] += 1
+            else:
+                if save_flag:
+                    save_file.write(ori_sentence(word_seq[i], word_id_dict))
 
         total_loss += loss_func(tag_scores, targets)
 
@@ -421,13 +435,8 @@ for epoch in range(epoch_num):
             else:
                 print("Test_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_test_average_acc[dataset_index]))
 
-torch.save(max_dev_average_acc_model_state[0], "friends_max_dev_average_acc_model.pkl")
-torch.save(max_dev_average_acc_model_state[1], "emotionpush_max_dev_average_acc_model.pkl")
-
-torch.save(max_test_average_acc_model_state[0], "friends_max_test_average_acc_model.pkl")
-torch.save(max_test_average_acc_model_state[1], "emotionpush_max_test_average_acc_model.pkl")
-
 # test_eval
+test_acc = [0, 0]
 for index in range(2):
     print("**********************************")
     print("test_dataset_{}: ".format(index), test_dataset[index].emotion_num)
@@ -437,8 +446,21 @@ for index in range(2):
     model.eval()
 
     # test_acc, total_acc, total_loss = eval(loader=test_loader[index], loss_func=loss_func)
-    test_acc, total_acc, total_loss = eval(loader=test_dataset[index].get_paragraph(), loss_func=loss_func)
+    test_acc[index], total_acc, total_loss = eval(loader=test_dataset[index].get_paragraph(), loss_func=loss_func, save_flag=True)
 
     print_info(sign="Test_{}".format(index), total_loss=total_loss,
-               total_acc=total_acc, acc=test_acc, dataset=test_dataset[index])
+               total_acc=total_acc, acc=test_acc[index], dataset=test_dataset[index])
 
+# save
+save_dir = "./data/{}_checkpoint_{}_fri={:.3f}_emp={:.3f}/".format(time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time())),
+                                                                   TAG, test_acc[0], test_acc[1])
+try:
+    os.makedirs(save_dir)
+except:
+    pass
+
+torch.save(max_dev_average_acc_model_state[0], save_dir+"friends_max_dev_average_acc_model.pkl")
+torch.save(max_dev_average_acc_model_state[1], save_dir+"emotionpush_max_dev_average_acc_model.pkl")
+
+torch.save(max_test_average_acc_model_state[0], save_dir+"friends_max_test_average_acc_model.pkl")
+torch.save(max_test_average_acc_model_state[1], save_dir+"emotionpush_max_test_average_acc_model.pkl")
