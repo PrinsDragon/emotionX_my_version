@@ -1,6 +1,7 @@
 #coding=utf-8
 
 import json
+import random
 
 import numpy as np
 import torch
@@ -29,7 +30,7 @@ emotionpush_test_dir = "./data/Merge_Proc/merge_seq_emotionpush_test.json"
 
 word_vector_dir = "./data/Merge_Proc/merge_word_vec.txt"
 
-epoch_num = 100
+epoch_num = 50
 embedding_dim = 300
 hidden_dim = 300
 fc_dim = 128
@@ -116,6 +117,8 @@ class EmotionDataSet(Dataset):
             for sent in para:
                 sent.extend(self.max_sentence_length)
 
+            random.shuffle(para)
+
         self.paragraphs_num = len(self.paragraphs)
         self.sentences_num = len(self.sentences)
 
@@ -142,6 +145,7 @@ class EmotionDataSet(Dataset):
             for i in range(1, len(para)):
                 seq_tensor = para[i].seq.view(1, -1)
                 para_tensor = torch.cat([para_tensor, seq_tensor], 0)
+
             yield para_tensor, sentence_lengths, sentence_labels
 
 # Load
@@ -273,6 +277,7 @@ def train(loader, optimizer, loss_func):
 
         if batch_times % 100 == 0:
             print("emotion loss: {:.3f} answer loss: {:.3f}".format(float(emotion_loss), float(qa_loss)))
+            # print(loss)
 
         total_loss += float(loss)
 
@@ -429,9 +434,11 @@ for index in range(2):
 
     # load max dev state
     model.load_state_dict(max_dev_average_acc_model_state[index])
+    model.eval()
 
     # test_acc, total_acc, total_loss = eval(loader=test_loader[index], loss_func=loss_func)
     test_acc, total_acc, total_loss = eval(loader=test_dataset[index].get_paragraph(), loss_func=loss_func)
 
-    print_info(sign="Test", total_loss=total_loss, total_acc=total_acc, acc=test_acc, dataset=test_dataset[index])
+    print_info(sign="Test_{}".format(index), total_loss=total_loss,
+               total_acc=total_acc, acc=test_acc, dataset=test_dataset[index])
 
