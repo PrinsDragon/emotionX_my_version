@@ -76,8 +76,9 @@ class BiLSTM_BiLSTM(nn.Module):
 
     def forward(self, sentence_tuple):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
-        sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(len(sentence_encoder_out), 1, -1))
-        tag_space = self.classifier(sent_lstm_out.view(len(sent_lstm_out), -1))
+
+        sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
+        tag_space = self.classifier(sent_lstm_out.view(sent_lstm_out.shape[1], -1))
 
         # tag_space = self.classifier(sentence_encoder_out)
 
@@ -98,14 +99,14 @@ class BiLSTM_BiLSTM(nn.Module):
     def get_loss(self, sentence_tuple, emotion_loss_func, targets):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
 
-        sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(len(sentence_encoder_out), 1, -1))
-        tag_space = self.classifier(sent_lstm_out.view(len(sent_lstm_out), -1))
+        sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
+        tag_space = self.classifier(sent_lstm_out.view(sent_lstm_out.shape[1], -1))
 
         # tag_space = self.classifier(sentence_encoder_out)
 
         emotion_loss = emotion_loss_func(tag_space, targets)
 
-        # return emotion_loss, emotion_loss, 0
+        return emotion_loss, emotion_loss, 0
 
         # self.loss = tf.reduce_mean(tf.nn.relu(1 + self.qa_score_1 - self.qa_score_2)
         sentence_num = len(sentence_encoder_out)

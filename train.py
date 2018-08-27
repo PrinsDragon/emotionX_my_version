@@ -34,7 +34,7 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-TAG = "epoc={}_{}".format(epoch_num, "not_shuffle+bilstmx2+qa")
+TAG = "epoc={}_{}".format(epoch_num, "not_shuffle+bilstmx2_lstm_fixed")
 TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
 print(TAG)
@@ -348,7 +348,7 @@ def eval(loader, loss_func, save_flag=False):
                 acc[int(targets[i])] += 1
             else:
                 if save_flag and targets[i] < 4:
-                    save_file.write(ori_sentence(word_seq[i], word_id_dict))
+                    save_file.write("pred: {}/{}  {}".format(pred[i], targets[i], ori_sentence(word_seq[i], word_id_dict)))
 
         total_loss += loss_func(tag_scores, targets)
 
