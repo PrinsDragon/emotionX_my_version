@@ -106,7 +106,7 @@ class BiLSTM_BiLSTM(nn.Module):
 
         emotion_loss = emotion_loss_func(tag_space, targets)
 
-        return emotion_loss, emotion_loss, 0
+        # return emotion_loss, emotion_loss, 0
 
         # self.loss = tf.reduce_mean(tf.nn.relu(1 + self.qa_score_1 - self.qa_score_2)
         sentence_num = len(sentence_encoder_out)

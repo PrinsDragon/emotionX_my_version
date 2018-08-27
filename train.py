@@ -5,6 +5,7 @@ import random
 import time
 import os
 import copy
+import sys
 
 from data.word_id_helper import read_word_id, ori_sentence
 
@@ -34,8 +35,18 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-TAG = "epoc={}_{}".format(epoch_num, "not_shuffle+bilstmx2_lstm_fixed")
+TAG = "epoc={}_{}".format(epoch_num, "not_shuffle+bilstmx2+qa_lstm_fixed")
 TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
+
+save_dir = "./data/{}_checkpoint_{}/".format(TIME, TAG)
+try:
+    os.makedirs(save_dir)
+except:
+    pass
+
+save_mistake_sent = open(save_dir + "{}_mistake_sent_{}.vstxt".format(TIME, TAG), "w", encoding="utf-8")
+save_out = open(save_dir + "{}_out_{}.vstxt".format(TIME, TAG), "w", encoding="utf-8")
+sys.stdout = save_out
 
 print(TAG)
 print(TIME)
@@ -181,8 +192,6 @@ test_loader = [friends_test_loader, emotionpush_test_loader]
 word_id_dict = read_word_id(word_id_dir)
 
 vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
-
-save_file = open("{}_mistake_sent_{}.vstxt".format(TIME, TAG), "w", encoding="utf-8")
 
 model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
                       hidden_dim=hidden_dim,
@@ -348,7 +357,7 @@ def eval(loader, loss_func, save_flag=False):
                 acc[int(targets[i])] += 1
             else:
                 if save_flag and targets[i] < 4:
-                    save_file.write("pred: {}/{}  {}".format(pred[i], targets[i], ori_sentence(word_seq[i], word_id_dict)))
+                    save_mistake_sent.write("pred: {}/{}  {}".format(pred[i], targets[i], ori_sentence(word_seq[i], word_id_dict)))
 
         total_loss += loss_func(tag_scores, targets)
 
@@ -455,12 +464,6 @@ for index in range(2):
                                          total_acc=total_acc, acc=test_acc, dataset=test_dataset[index])
 
 # save
-save_dir = "./data/{}_checkpoint_{}_fri={:.3f}_emp={:.3f}/".format(TIME, TAG, test_average_acc[0], test_average_acc[1])
-try:
-    os.makedirs(save_dir)
-except:
-    pass
-
 torch.save(max_dev_average_acc_model_state[0], save_dir+"friends_max_dev_average_acc_model.pkl")
 torch.save(max_dev_average_acc_model_state[1], save_dir+"emotionpush_max_dev_average_acc_model.pkl")
 
