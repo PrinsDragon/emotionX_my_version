@@ -14,7 +14,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from Net import BiLSTM_BiLSTM
+# from Net import BiLSTM_BiLSTM
+from BiLSTM_Attention_CRF import BiLSTM_BiLSTM
 from Attention_Net import TransformerEncoder_BiLSTM
 from Attention_Net import BiLSTM_TransformerEncoder
 from Attention_Net import BiLSTM_Attention
@@ -33,10 +34,12 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-TAG = "epoc={}_{}".format(epoch_num, "not_shuffle+bilstmx2+qa_lstm_fixed")
+TAG = "epoc={}_{}".format(epoch_num, "bilstm_Attention+bilstm+qa_lstm_fixed")
 TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
 save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)
+# save_dir = "./checkpoints/123/"
+
 try:
     os.makedirs(save_dir)
 except:

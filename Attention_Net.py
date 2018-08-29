@@ -58,10 +58,10 @@ class ScaledDotProductAttention(nn.Module):
 
         return output
 
-class ScaledDotProductAttention_MultiHead(nn.Module):
+class ScaledDotProductAttention_Batch(nn.Module):
 
     def __init__(self, model_dim, attention_dropout=0.1):
-        super(ScaledDotProductAttention_MultiHead, self).__init__()
+        super(ScaledDotProductAttention_Batch, self).__init__()
         self.scale_constant = np.power(model_dim, 0.5)
         self.dropout_layer = nn.Dropout(attention_dropout)
         self.softmax_layer = BottleSoftmax()
@@ -112,7 +112,7 @@ class MultiHeadAttentionUnit(nn.Module):
         self.w_ks = nn.Parameter(torch.FloatTensor(head_num, model_dim, k_dim))
         self.w_vs = nn.Parameter(torch.FloatTensor(head_num, model_dim, v_dim))
 
-        self.attention_layer = ScaledDotProductAttention_MultiHead(model_dim)
+        self.attention_layer = ScaledDotProductAttention_Batch(model_dim)
         self.norm_layer = LayerNormalization(model_dim)
         self.linear_layer = BottleLinear(head_num*v_dim, model_dim) # nn.Linear(head_num * v_dim, model_dim, bias=True)
 
