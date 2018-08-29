@@ -20,11 +20,9 @@ from Attention_Net import BiLSTM_TransformerEncoder
 from Attention_Net import BiLSTM_Attention
 
 GPU = torch.cuda.is_available()
-print("GPU available: ", GPU)
 
 # parameters
 mode = 4
-print("Now mode = {}".format(mode))
 
 epoch_num = 50
 embedding_dim = 300
@@ -38,7 +36,7 @@ dropout_rate = 0.8
 TAG = "epoc={}_{}".format(epoch_num, "not_shuffle+bilstmx2+qa_lstm_fixed")
 TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
-save_dir = "./data/{}_checkpoint_{}/".format(TIME, TAG)
+save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)
 try:
     os.makedirs(save_dir)
 except:
@@ -48,6 +46,7 @@ save_mistake_sent = open(save_dir + "{}_mistake_sent_{}.vstxt".format(TIME, TAG)
 save_out = open(save_dir + "{}_out_{}.vstxt".format(TIME, TAG), "w", encoding="utf-8")
 sys.stdout = save_out
 
+print("GPU available: ", GPU)
 print(TAG)
 print(TIME)
 
