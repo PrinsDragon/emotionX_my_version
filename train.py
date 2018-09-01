@@ -25,7 +25,7 @@ GPU = torch.cuda.is_available()
 # parameters
 mode = 4
 
-epoch_num = 50
+epoch_num = 200
 embedding_dim = 300
 hidden_dim = 300
 fc_dim = 128

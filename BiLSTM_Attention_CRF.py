@@ -101,14 +101,12 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
 
     def forward(self, sentence_tuple):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
-
         sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
 
         attention_out = self.attention_layer(sent_lstm_out, sent_lstm_out, sent_lstm_out)
+        tag_space = self.classifier(attention_out.view(attention_out.shape[1], -1))
 
         # tag_space = self.classifier(sent_lstm_out.view(sent_lstm_out.shape[1], -1))
-
-        tag_space = self.classifier(attention_out.view(attention_out.shape[1], -1))
 
         # tag_space = self.classifier(sentence_encoder_out)
 
@@ -128,13 +126,12 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
     # multitask loss
     def get_loss(self, sentence_tuple, emotion_loss_func, targets):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
-
         sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
-        # attention_out = self.attention_layer(sent_lstm_out, sent_lstm_out, sent_lstm_out)
 
-        tag_space = self.classifier(sent_lstm_out.view(sent_lstm_out.shape[1], -1))
+        attention_out = self.attention_layer(sent_lstm_out, sent_lstm_out, sent_lstm_out)
+        tag_space = self.classifier(attention_out.view(attention_out.shape[1], -1))
 
-        # tag_space = self.classifier(attention_out.view(attention_out.shape[1], -1))
+        # tag_space = self.classifier(sent_lstm_out.view(sent_lstm_out.shape[1], -1))
 
         # tag_space = self.classifier(sentence_encoder_out)
 
