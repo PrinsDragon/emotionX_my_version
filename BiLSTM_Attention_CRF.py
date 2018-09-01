@@ -82,7 +82,7 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
 
         self.sent_lstm = nn.LSTM(input_size=2*embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
 
-        # self.attention_layer = ScaledDotProductAttention_Batch(model_dim=2*embedding_dim)
+        self.attention_layer = ScaledDotProductAttention_Batch(model_dim=2*embedding_dim)
 
         self.classifier = nn.Sequential(
             nn.Linear(2 * hidden_dim, fc_dim),
@@ -104,11 +104,11 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
 
         sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
 
-        # attention_out = self.attention_layer(sent_lstm_out, sent_lstm_out, sent_lstm_out)
+        attention_out = self.attention_layer(sent_lstm_out, sent_lstm_out, sent_lstm_out)
 
-        tag_space = self.classifier(sent_lstm_out.view(sent_lstm_out.shape[1], -1))
+        # tag_space = self.classifier(sent_lstm_out.view(sent_lstm_out.shape[1], -1))
 
-        # tag_space = self.classifier(attention_out.view(attention_out.shape[1], -1))
+        tag_space = self.classifier(attention_out.view(attention_out.shape[1], -1))
 
         # tag_space = self.classifier(sentence_encoder_out)
 
