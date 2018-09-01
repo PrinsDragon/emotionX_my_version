@@ -185,7 +185,7 @@ def save_word_id(save_dir):
 
 
 if __name__ == '__main__':
-    GloVe_dir = r"C:\Users\WangZilong\Documents\Python_Project\_Data_Files\glove.840B.300d.txt"
+    GloVe_dir = r"D:\Documents\Python_Project\WordVector_Folder\glove.840B.300d.txt"
     DataSet = "Merge"
     DataSet_Tag = ["train", "test", "dev"]
 

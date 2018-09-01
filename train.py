@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 # from Net import BiLSTM_BiLSTM
-from BiLSTM_Attention_CRF import BiLSTM_BiLSTM
+from BiLSTM_Attention_CRF import BiLSTM_Atention_BiLSTM
 from Attention_Net import TransformerEncoder_BiLSTM
 from Attention_Net import BiLSTM_TransformerEncoder
 from Attention_Net import BiLSTM_Attention
@@ -34,7 +34,7 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-TAG = "epoc={}_{}".format(epoch_num, "bilstm_Attention+bilstm+qa_lstm_fixed")
+TAG = "epoc={}_{}".format(epoch_num, "bilstm_Attention+bilstm+qa")
 TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
 save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)
@@ -45,8 +45,8 @@ try:
 except:
     pass
 
-save_mistake_sent = open(save_dir + "{}_mistake_sent_{}.vstxt".format(TIME, TAG), "w", encoding="utf-8")
-save_out = open(save_dir + "{}_out_{}.vstxt".format(TIME, TAG), "w", encoding="utf-8")
+save_mistake_sent = open(save_dir + "mistake_sent_{}.vstxt".format(TAG), "w", encoding="utf-8")
+save_out = open(save_dir + "out_{}.vstxt".format(TAG), "w", encoding="utf-8")
 sys.stdout = save_out
 
 print("GPU available: ", GPU)
@@ -195,13 +195,13 @@ word_id_dict = read_word_id(word_id_dir)
 
 vocab_size, word_vec_matrix = build_word_vec_matrix(word_vector_dir)
 
-model = BiLSTM_BiLSTM(embedding_dim=embedding_dim,
-                      hidden_dim=hidden_dim,
-                      fc_dim=fc_dim,
-                      vocab_size=vocab_size,
-                      tagset_size=target_size,
-                      word_vec_matrix=word_vec_matrix,
-                      dropout=dropout_rate)
+model = BiLSTM_Atention_BiLSTM(embedding_dim=embedding_dim,
+                               hidden_dim=hidden_dim,
+                               fc_dim=fc_dim,
+                               vocab_size=vocab_size,
+                               tagset_size=target_size,
+                               word_vec_matrix=word_vec_matrix,
+                               dropout=dropout_rate)
 
 # model = TransformerEncoder_BiLSTM(encoder_vocab_size=vocab_size,
 #                                   encoder_sentence_length=max(train_dataset.max_sentence_length,

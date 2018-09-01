@@ -6,23 +6,23 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 from Attention_Net import ScaledDotProductAttention_Batch
 
-GPU = True
-
-def mask_initial(sentence_length_list):
-    batch_size = len(sentence_length_list)
-    max_length = int(max(sentence_length_list))
-    mask = torch.zeros(batch_size, max_length, max_length).byte()
-    for i in range(batch_size):
-        sent_len = int(sentence_length_list[i])
-        len_mask = np.ones((max_length, 1))
-        len_mask[sent_len:] = 0
-        attn_mask = np.matmul(len_mask, len_mask.transpose())
-        attn_mask = torch.from_numpy(attn_mask)
-        attn_mask = torch.eq(attn_mask, 0)
-        mask[i] = attn_mask
-    if GPU:
-        mask = mask.cuda()
-    return mask
+# GPU = True
+#
+# def mask_initial(sentence_length_list):
+#     batch_size = len(sentence_length_list)
+#     max_length = int(max(sentence_length_list))
+#     mask = torch.zeros(batch_size, max_length, max_length).byte()
+#     for i in range(batch_size):
+#         sent_len = int(sentence_length_list[i])
+#         len_mask = np.ones((max_length, 1))
+#         len_mask[sent_len:] = 0
+#         attn_mask = np.matmul(len_mask, len_mask.transpose())
+#         attn_mask = torch.from_numpy(attn_mask)
+#         attn_mask = torch.eq(attn_mask, 0)
+#         mask[i] = attn_mask
+#     if GPU:
+#         mask = mask.cuda()
+#     return mask
 
 class BiLSTM_Attention_Encoder(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, vocab_size, word_vec_matrix):
@@ -61,19 +61,19 @@ class BiLSTM_Attention_Encoder(nn.Module):
 
         # unsort
         lstm_out = lstm_out[desorted_indices]
-        sentence_length_list = sentence_length_list[desorted_indices]
 
-        attention_mask = mask_initial(sentence_length_list)
+        attention_out = self.attention_layer(lstm_out, lstm_out, lstm_out)
 
-        attention_out = self.attention_layer(lstm_out, lstm_out, lstm_out, attention_mask)
+        # res_plus = attention_out + lstm_out
 
+        # max_pooling_out = torch.max(res_plus, 1)[0]
         max_pooling_out = torch.max(attention_out, 1)[0]
 
         return max_pooling_out
 
-class BiLSTM_BiLSTM(nn.Module):
+class BiLSTM_Atention_BiLSTM(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout):
-        super(BiLSTM_BiLSTM, self).__init__()
+        super(BiLSTM_Atention_BiLSTM, self).__init__()
 
         self.sentence_encoder = BiLSTM_Attention_Encoder(embedding_dim=embedding_dim,
                                                          hidden_dim=hidden_dim,
@@ -81,6 +81,8 @@ class BiLSTM_BiLSTM(nn.Module):
                                                          word_vec_matrix=word_vec_matrix)
 
         self.sent_lstm = nn.LSTM(input_size=2*embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
+
+        # self.attention_layer = ScaledDotProductAttention_Batch(model_dim=2*embedding_dim)
 
         self.classifier = nn.Sequential(
             nn.Linear(2 * hidden_dim, fc_dim),
@@ -101,7 +103,12 @@ class BiLSTM_BiLSTM(nn.Module):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
 
         sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
+
+        # attention_out = self.attention_layer(sent_lstm_out, sent_lstm_out, sent_lstm_out)
+
         tag_space = self.classifier(sent_lstm_out.view(sent_lstm_out.shape[1], -1))
+
+        # tag_space = self.classifier(attention_out.view(attention_out.shape[1], -1))
 
         # tag_space = self.classifier(sentence_encoder_out)
 
@@ -123,7 +130,11 @@ class BiLSTM_BiLSTM(nn.Module):
         sentence_encoder_out = self.sentence_encoder(sentence_tuple)
 
         sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
+        # attention_out = self.attention_layer(sent_lstm_out, sent_lstm_out, sent_lstm_out)
+
         tag_space = self.classifier(sent_lstm_out.view(sent_lstm_out.shape[1], -1))
+
+        # tag_space = self.classifier(attention_out.view(attention_out.shape[1], -1))
 
         # tag_space = self.classifier(sentence_encoder_out)
 
