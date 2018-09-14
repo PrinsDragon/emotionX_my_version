@@ -113,19 +113,37 @@ class Whole_Encoder(nn.Module):
         lstm_out = lstm_out.view(lstm_out.shape[1], -1)
 
         # split
+
         # encoder_out = lstm_out[sentence_length_list[0]/2].view(1, -1)
         #
         # for i in range(1, sentence_num):
         #     index = sentence_length_sum[i-1] + sentence_length_list[i]/2
         #     encoder_out = torch.cat([encoder_out, lstm_out[index].view(1, -1)], 0)
 
-        encoder_out = torch.max(lstm_out[:sentence_length_list[0]], 0)[0].view(1, -1)
+        # encoder_out = torch.max(lstm_out[:sentence_length_list[0]], 0)[0].view(1, -1)
+        # for i in range(1, sentence_num):
+        #     start = sentence_length_sum[i-1]
+        #     end = sentence_length_sum[i]
+        #     sent = lstm_out[start:end]
+        #     cat = torch.max(sent, 0)[0].view(1, -1)
+        #     encoder_out = torch.cat([encoder_out, cat], 0)
+
+        encoder_out = lstm_out[:sentence_length_list[0]]
+        encoder_out = encoder_out.view(1, encoder_out.shape[0], -1)
+
+        encoder_out = self.attention_layer(encoder_out, encoder_out, encoder_out)
+        encoder_out = torch.max(encoder_out, 1)[0]
+
         for i in range(1, sentence_num):
             start = sentence_length_sum[i-1]
             end = sentence_length_sum[i]
             sent = lstm_out[start:end]
-            cat = torch.max(sent, 0)[0].view(1, -1)
-            encoder_out = torch.cat([encoder_out, cat], 0)
+            sent = sent.view(1, sent.shape[0], -1)
+
+            sent = self.attention_layer(sent, sent, sent)
+            sent = torch.max(sent, 1)[0]
+
+            encoder_out = torch.cat([encoder_out, sent])
 
         return encoder_out, _
 

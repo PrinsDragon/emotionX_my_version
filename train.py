@@ -26,7 +26,7 @@ GPU = torch.cuda.is_available()
 # parameters
 mode = 4
 
-epoch_num = 50
+epoch_num = 200
 embedding_dim = 300
 hidden_dim = 300
 fc_dim = 128
@@ -35,7 +35,7 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-TAG = "epoc={}_{}".format(epoch_num, "whole+bilstm+qa")
+TAG = "epoc={}_{}".format(epoch_num, "whole+Attention+bilstm+qa")
 TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
 save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)
