@@ -352,7 +352,7 @@ def eval(loader, loss_func, save_flag=False):
 
         targets = label
 
-        tag_scores = model((word_seq, seq_len))
+        _, tag_scores = model.forward((word_seq, seq_len))
 
         pred = torch.max(tag_scores, 1)[1]
 
