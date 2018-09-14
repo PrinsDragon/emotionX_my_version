@@ -75,9 +75,9 @@ class BiLSTM_Attention_Encoder(nn.Module):
 
         return max_pooling_out, attention_out
 
-class Middle_Encoder(nn.Module):
+class Whole_Encoder(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, vocab_size, word_vec_matrix):
-        super(Middle_Encoder, self).__init__()
+        super(Whole_Encoder, self).__init__()
 
         self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
         self.word_embeddings.weight.data.copy_(torch.from_numpy(word_vec_matrix))
@@ -113,16 +113,21 @@ class Middle_Encoder(nn.Module):
         lstm_out = lstm_out.view(lstm_out.shape[1], -1)
 
         # split
-        encoder_out = lstm_out[sentence_length_list[0]/2].view(1, -1)
+        # encoder_out = lstm_out[sentence_length_list[0]/2].view(1, -1)
+        #
+        # for i in range(1, sentence_num):
+        #     index = sentence_length_sum[i-1] + sentence_length_list[i]/2
+        #     encoder_out = torch.cat([encoder_out, lstm_out[index].view(1, -1)], 0)
 
+        encoder_out = torch.max(lstm_out[:sentence_length_list[0]], 0)[0].view(1, -1)
         for i in range(1, sentence_num):
-            index = sentence_length_sum[i-1] + sentence_length_list[i]/2
-            encoder_out = torch.cat([encoder_out, lstm_out[index].view(1, -1)], 0)
+            start = sentence_length_sum[i-1]
+            end = sentence_length_sum[i]
+            sent = lstm_out[start:end]
+            cat = torch.max(sent, 0)[0].view(1, -1)
+            encoder_out = torch.cat([encoder_out, cat], 0)
 
         return encoder_out, _
-
-
-        # return max_pooling_out, attention_out
 
 
 def make_cat_matrix(a, b):
@@ -130,7 +135,6 @@ def make_cat_matrix(a, b):
     multiply_part = a * b
     cat = torch.cat([a, b, abs_part, multiply_part], 2)
     return cat
-
 
 class Attention_Projector_BiLSTM(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, fc_dim, tagset_size, dropout):
@@ -189,7 +193,6 @@ class Attention_Projector_BiLSTM(nn.Module):
 
         return tag_space
 
-
 class BiLSTM_Atention_BiLSTM(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout):
         super(BiLSTM_Atention_BiLSTM, self).__init__()
@@ -199,10 +202,10 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
         #                                                  vocab_size=vocab_size,
         #                                                  word_vec_matrix=word_vec_matrix)
 
-        self.sentence_encoder = Middle_Encoder(embedding_dim=embedding_dim,
-                                               hidden_dim=hidden_dim,
-                                               vocab_size=vocab_size,
-                                               word_vec_matrix=word_vec_matrix)
+        self.sentence_encoder = Whole_Encoder(embedding_dim=embedding_dim,
+                                              hidden_dim=hidden_dim,
+                                              vocab_size=vocab_size,
+                                              word_vec_matrix=word_vec_matrix)
 
         self.sent_lstm = nn.LSTM(input_size=2*embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
 
