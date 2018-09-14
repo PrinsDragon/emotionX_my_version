@@ -35,7 +35,7 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-TAG = "epoc={}_{}".format(epoch_num, "bilstm_Attention+bilstm+qa+1&2")
+TAG = "epoc={}_{}".format(epoch_num, "middle+bilstm+qa")
 TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
 save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)

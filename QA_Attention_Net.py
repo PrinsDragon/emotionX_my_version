@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -73,6 +75,55 @@ class BiLSTM_Attention_Encoder(nn.Module):
 
         return max_pooling_out, attention_out
 
+class Middle_Encoder(nn.Module):
+    def __init__(self, embedding_dim, hidden_dim, vocab_size, word_vec_matrix):
+        super(Middle_Encoder, self).__init__()
+
+        self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
+        self.word_embeddings.weight.data.copy_(torch.from_numpy(word_vec_matrix))
+
+        self.whole_bilstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
+
+        self.attention_layer = ScaledDotProductAttention_Batch(model_dim=2*embedding_dim)
+
+    def forward(self, sentence_tuple):
+        # split input
+        sentence = sentence_tuple[0]
+        sentence_length_list = sentence_tuple[1]
+
+        # sentence_max_length = int(sentence_length_list.max())
+        sentence_num = len(sentence)
+
+        # cat
+        sentence_whole = sentence[0][:sentence_length_list[0]]
+        for i in range(1, sentence_num):
+            sent = sentence[i]
+            sent_len = sentence_length_list[i]
+            sentence_whole = torch.cat([sentence_whole, sent[:sent_len]])
+
+        sentence_length_sum = copy.deepcopy(sentence_length_list)
+        for i in range(1, sentence_num):
+            sentence_length_sum[i] += sentence_length_sum[i-1]
+
+        # get word embedding
+        embeds = self.word_embeddings(sentence_whole)
+
+        # embedding
+        lstm_out, _ = self.whole_bilstm(embeds.view(1, embeds.shape[0], -1))
+        lstm_out = lstm_out.view(lstm_out.shape[1], -1)
+
+        # split
+        encoder_out = lstm_out[sentence_length_list[0]/2].view(1, -1)
+
+        for i in range(1, sentence_num):
+            index = sentence_length_sum[i-1] + sentence_length_list[i]/2
+            encoder_out = torch.cat([encoder_out, lstm_out[index].view(1, -1)], 0)
+
+        return encoder_out, _
+
+
+        # return max_pooling_out, attention_out
+
 
 def make_cat_matrix(a, b):
     abs_part = torch.abs(a - b)
@@ -143,10 +194,15 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout):
         super(BiLSTM_Atention_BiLSTM, self).__init__()
 
-        self.sentence_encoder = BiLSTM_Attention_Encoder(embedding_dim=embedding_dim,
-                                                         hidden_dim=hidden_dim,
-                                                         vocab_size=vocab_size,
-                                                         word_vec_matrix=word_vec_matrix)
+        # self.sentence_encoder = BiLSTM_Attention_Encoder(embedding_dim=embedding_dim,
+        #                                                  hidden_dim=hidden_dim,
+        #                                                  vocab_size=vocab_size,
+        #                                                  word_vec_matrix=word_vec_matrix)
+
+        self.sentence_encoder = Middle_Encoder(embedding_dim=embedding_dim,
+                                               hidden_dim=hidden_dim,
+                                               vocab_size=vocab_size,
+                                               word_vec_matrix=word_vec_matrix)
 
         self.sent_lstm = nn.LSTM(input_size=2*embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
 
@@ -167,7 +223,7 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
             nn.Linear(100, 1)
         )
 
-        self.attention_projector_bilstm = Attention_Projector_BiLSTM(embedding_dim, hidden_dim, fc_dim, tagset_size, dropout)
+        # self.attention_projector_bilstm = Attention_Projector_BiLSTM(embedding_dim, hidden_dim, fc_dim, tagset_size, dropout)
 
     def forward(self, sentence_tuple):
         sentence_encoder_out, sentence_encoder_matrix = self.sentence_encoder(sentence_tuple)
@@ -180,10 +236,12 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
 
         # tag_space = self.classifier(sentence_encoder_out)
 
-        extra_tag_space = self.attention_projector_bilstm(sentence_encoder_matrix[:-1],
-                                                          sentence_encoder_matrix[1:])
+        # extra_tag_space = self.attention_projector_bilstm(sentence_encoder_matrix[:-1],
+        #                                                   sentence_encoder_matrix[1:])
 
-        return sentence_encoder_out, tag_space + extra_tag_space
+        # return sentence_encoder_out, tag_space + extra_tag_space
+
+        return sentence_encoder_out, tag_space
 
     def question_answer_score(self, question_tensor, answer_tensor):
         abs_part = torch.abs(question_tensor - answer_tensor)
