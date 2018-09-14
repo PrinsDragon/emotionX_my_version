@@ -24,6 +24,8 @@ from Attention_Net import ScaledDotProductAttention_Batch
 #         mask = mask.cuda()
 #     return mask
 
+GPU = True
+
 class BiLSTM_Attention_Encoder(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, vocab_size, word_vec_matrix):
         super(BiLSTM_Attention_Encoder, self).__init__()
@@ -69,7 +71,73 @@ class BiLSTM_Attention_Encoder(nn.Module):
         # max_pooling_out = torch.max(res_plus, 1)[0]
         max_pooling_out = torch.max(attention_out, 1)[0]
 
-        return max_pooling_out
+        return max_pooling_out, attention_out
+
+
+def make_cat_matrix(a, b):
+    abs_part = torch.abs(a - b)
+    multiply_part = a * b
+    cat = torch.cat([a, b, abs_part, multiply_part], 2)
+    return cat
+
+
+class Attention_Projector_BiLSTM(nn.Module):
+    def __init__(self, embedding_dim, hidden_dim, fc_dim, tagset_size, dropout):
+        super(Attention_Projector_BiLSTM, self).__init__()
+
+        self.attention_layer = ScaledDotProductAttention_Batch(model_dim=2*embedding_dim)
+
+        self.first_projector = nn.Sequential(
+            nn.Linear(2 * embedding_dim * 4, embedding_dim),
+            nn.ReLU()
+        )
+        self.second_projector = nn.Sequential(
+            nn.Linear(2 * embedding_dim * 4, embedding_dim),
+            nn.ReLU()
+        )
+
+        self.first_bilstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
+        self.second_bilstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
+
+        self.final_projector = nn.Sequential(
+            nn.Linear(2 * embedding_dim * 4, fc_dim),
+            nn.Dropout(dropout),
+            nn.ReLU(),
+            nn.Linear(fc_dim, fc_dim),
+            nn.Dropout(dropout),
+            nn.ReLU(),
+            nn.Linear(fc_dim, tagset_size)
+        )
+
+    def forward(self, first_matrix, second_matrix):
+        first_attention_out = self.attention_layer(first_matrix, second_matrix, second_matrix)
+        second_attention_out = self.attention_layer(second_matrix, first_matrix, first_matrix)
+
+        first_cat = make_cat_matrix(first_matrix, first_attention_out)
+        second_cat = make_cat_matrix(second_matrix, second_attention_out)
+
+        first_projector_out = self.first_projector(first_cat)
+        second_projector_out = self.second_projector(second_cat)
+
+        first_bilstm_out, _ = self.first_bilstm(first_projector_out)
+        second_bilstm_out, _ = self.second_bilstm(second_projector_out)
+
+        first_max_pooling_out = torch.max(first_bilstm_out, 1)[0]
+        second_max_pooling_out = torch.max(second_bilstm_out, 1)[0]
+
+        abs_part = torch.abs(first_max_pooling_out - second_max_pooling_out)
+        multiply_part = first_max_pooling_out * second_max_pooling_out
+        cat = torch.cat([first_max_pooling_out, second_max_pooling_out, abs_part, multiply_part], 1)
+
+        tag_space = self.final_projector(cat)
+
+        zero = torch.zeros(1, 8)
+        if GPU:
+            zero = zero.cuda()
+        tag_space = torch.cat([zero, tag_space])
+
+        return tag_space
+
 
 class BiLSTM_Atention_BiLSTM(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout):
@@ -99,8 +167,10 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
             nn.Linear(100, 1)
         )
 
+        self.attention_projector_bilstm = Attention_Projector_BiLSTM(embedding_dim, hidden_dim, fc_dim, tagset_size, dropout)
+
     def forward(self, sentence_tuple):
-        sentence_encoder_out = self.sentence_encoder(sentence_tuple)
+        sentence_encoder_out, sentence_encoder_matrix = self.sentence_encoder(sentence_tuple)
         sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
 
         # attention_out = self.attention_layer(sent_lstm_out, sent_lstm_out, sent_lstm_out)
@@ -110,7 +180,10 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
 
         # tag_space = self.classifier(sentence_encoder_out)
 
-        return sentence_encoder_out, tag_space
+        extra_tag_space = self.attention_projector_bilstm(sentence_encoder_matrix[:-1],
+                                                          sentence_encoder_matrix[1:])
+
+        return sentence_encoder_out, tag_space + extra_tag_space
 
     def question_answer_score(self, question_tensor, answer_tensor):
         abs_part = torch.abs(question_tensor - answer_tensor)
@@ -125,7 +198,7 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
 
     # multitask loss
     def get_loss(self, sentence_encoder_out, tag_space, emotion_loss_func, targets):
-        # sentence_encoder_out = self.sentence_encoder(sentence_tuple)
+        # sentence_encoder_out, _ = self.sentence_encoder(sentence_tuple)
         # sent_lstm_out, _ = self.sent_lstm(sentence_encoder_out.view(1, sentence_encoder_out.shape[0], -1))
         #
         # # attention_out = self.attention_layer(sent_lstm_out, sent_lstm_out, sent_lstm_out)

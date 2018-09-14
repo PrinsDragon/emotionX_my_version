@@ -15,7 +15,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 # from Net import BiLSTM_BiLSTM
-from BiLSTM_Attention_CRF import BiLSTM_Atention_BiLSTM
+# from BiLSTM_Attention_CRF import BiLSTM_Atention_BiLSTM
+from QA_Attention_Net import BiLSTM_Atention_BiLSTM
 from Attention_Net import TransformerEncoder_BiLSTM
 from Attention_Net import BiLSTM_TransformerEncoder
 from Attention_Net import BiLSTM_Attention
@@ -25,7 +26,7 @@ GPU = torch.cuda.is_available()
 # parameters
 mode = 4
 
-epoch_num = 200
+epoch_num = 50
 embedding_dim = 300
 hidden_dim = 300
 fc_dim = 128
@@ -34,7 +35,7 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-TAG = "epoc={}_{}".format(epoch_num, "bilstm_Attention+bilstm+Attention+qa")
+TAG = "epoc={}_{}".format(epoch_num, "bilstm_Attention+bilstm+qa+1&2")
 TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
 save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)
@@ -287,7 +288,7 @@ def train(loader, optimizer, loss_func):
 
         targets = label
 
-        tag_scores = model((word_seq, seq_len))
+        sentence_encoder_out, tag_scores = model.forward((word_seq, seq_len))
 
         pred = torch.max(tag_scores, 1)[1]
 
@@ -296,7 +297,8 @@ def train(loader, optimizer, loss_func):
                 train_acc[int(targets[i])] += 1
 
         # loss = loss_func(tag_scores, targets)
-        loss, emotion_loss, qa_loss = model.get_loss(sentence_tuple=(word_seq, seq_len),
+        loss, emotion_loss, qa_loss = model.get_loss(sentence_encoder_out=sentence_encoder_out,
+                                                     tag_space=tag_scores,
                                                      emotion_loss_func=loss_func,
                                                      targets=targets)
 
