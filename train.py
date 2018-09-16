@@ -16,17 +16,20 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 # from Net import BiLSTM_BiLSTM
 # from BiLSTM_Attention_CRF import BiLSTM_Atention_BiLSTM
-from QA_Attention_Net import BiLSTM_Atention_BiLSTM
-from Attention_Net import TransformerEncoder_BiLSTM
-from Attention_Net import BiLSTM_TransformerEncoder
-from Attention_Net import BiLSTM_Attention
+# from QA_Attention_Net import BiLSTM_Atention_BiLSTM
+from Sentence_Attention_Encoder import BiLSTM_Atention_BiLSTM
+
+# from Attention_Net import TransformerEncoder_BiLSTM
+# from Attention_Net import BiLSTM_TransformerEncoder
+# from Attention_Net import BiLSTM_Attention
 
 GPU = torch.cuda.is_available()
+SERVER = True
 
 # parameters
 mode = 4
 
-epoch_num = 200
+epoch_num = 100
 embedding_dim = 300
 hidden_dim = 300
 fc_dim = 128
@@ -35,24 +38,24 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-TAG = "epoc={}_{}".format(epoch_num, "whole+Attention+bilstm+qa")
-TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
+if SERVER:
+    TAG = "epoc={}_{}".format(epoch_num, "Bilstm+3Attention+bilstm+qa")
+    TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
-save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)
-# save_dir = "./checkpoints/123/"
+    save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)
 
-try:
-    os.makedirs(save_dir)
-except:
-    pass
+    try:
+        os.makedirs(save_dir)
+    except:
+        pass
 
-save_mistake_sent = open(save_dir + "mistake_sent_{}.vstxt".format(TAG), "w", encoding="utf-8")
-save_out = open(save_dir + "out_{}.vstxt".format(TAG), "w", encoding="utf-8")
-sys.stdout = save_out
+    save_mistake_sent = open(save_dir + "mistake_sent_{}.vstxt".format(TAG), "w", encoding="utf-8")
+    save_out = open(save_dir + "out_{}.vstxt".format(TAG), "w", encoding="utf-8")
+    sys.stdout = save_out
 
-print("GPU available: ", GPU)
-print(TAG)
-print(TIME)
+    print("GPU available: ", GPU)
+    print(TAG)
+    print(TIME)
 
 train_dir = "./data/Merge_Proc/merge_seq_train.json"
 
