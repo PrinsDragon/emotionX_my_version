@@ -8,9 +8,9 @@ from Attention_Net import ScaledDotProductAttention_Batch
 
 GPU = True
 
-class BiLSTM_Attention_Encoder(nn.Module):
+class Three_Attention_Encoder(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, vocab_size, word_vec_matrix):
-        super(BiLSTM_Attention_Encoder, self).__init__()
+        super(Three_Attention_Encoder, self).__init__()
 
         self.hidden_dim = hidden_dim
 
@@ -76,10 +76,10 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout):
         super(BiLSTM_Atention_BiLSTM, self).__init__()
 
-        self.sentence_encoder = BiLSTM_Attention_Encoder(embedding_dim=embedding_dim,
-                                                         hidden_dim=hidden_dim,
-                                                         vocab_size=vocab_size,
-                                                         word_vec_matrix=word_vec_matrix)
+        self.sentence_encoder = Three_Attention_Encoder(embedding_dim=embedding_dim,
+                                                        hidden_dim=hidden_dim,
+                                                        vocab_size=vocab_size,
+                                                        word_vec_matrix=word_vec_matrix)
 
         self.sent_lstm = nn.LSTM(input_size=2*embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
 
