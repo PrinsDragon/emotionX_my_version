@@ -21,7 +21,7 @@ class Three_Attention_Encoder(nn.Module):
 
         self.attention_layer = ScaledDotProductAttention_Batch(model_dim=2*embedding_dim)
 
-        self.projector = nn.Linear(2*embedding_dim*3, 2*embedding_dim)
+        # self.projector = nn.Linear(2*embedding_dim*3, 2*embedding_dim)
 
     def forward(self, sentence_tuple):
         # split input
@@ -66,9 +66,9 @@ class Three_Attention_Encoder(nn.Module):
 
         attention_cat = torch.cat([before_attention_out, self_attention_out, after_attention_out], 2)
 
-        projector_out = self.projector(attention_cat)
+        # projector_out = self.projector(attention_cat)
 
-        max_pooling_out = torch.max(projector_out, 1)[0]
+        max_pooling_out = torch.max(attention_cat, 1)[0]
 
         return max_pooling_out
 
@@ -81,12 +81,14 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
                                                         vocab_size=vocab_size,
                                                         word_vec_matrix=word_vec_matrix)
 
-        self.sent_lstm = nn.LSTM(input_size=2*embedding_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=True)
+        sentence_encoder_dim = 2*embedding_dim*3
+
+        self.sent_lstm = nn.LSTM(input_size=sentence_encoder_dim, hidden_size=hidden_dim*3, bidirectional=True, batch_first=True)
 
         # self.attention_layer = ScaledDotProductAttention_Batch(model_dim=2*embedding_dim)
 
         self.classifier = nn.Sequential(
-            nn.Linear(2 * hidden_dim, fc_dim),
+            nn.Linear(2 * hidden_dim * 3, fc_dim),
             nn.Dropout(dropout),
             nn.ReLU(),
             nn.Linear(fc_dim, fc_dim),
@@ -96,7 +98,7 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
         )
 
         self.qa_score_linear = nn.Sequential(
-            nn.Linear(2*embedding_dim*4, 100),
+            nn.Linear(sentence_encoder_dim*4, 100),
             nn.Linear(100, 1)
         )
 
