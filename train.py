@@ -39,7 +39,7 @@ target_size = 8
 dropout_rate = 0.8
 
 if SERVER:
-    TAG = "epoc={}_{}".format(epoch_num, "Bilstm+3Attention_v2+bilstm+qa")
+    TAG = "epoc={}_{}".format(epoch_num, "Bilstm+2xAttention+bilstm+qa")
     TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
     save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)

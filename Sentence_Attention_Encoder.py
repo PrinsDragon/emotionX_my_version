@@ -8,9 +8,9 @@ from Attention_Net import ScaledDotProductAttention_Batch
 
 GPU = True
 
-class Three_Attention_Encoder(nn.Module):
+class Multi_Attention_Encoder(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, vocab_size, word_vec_matrix):
-        super(Three_Attention_Encoder, self).__init__()
+        super(Multi_Attention_Encoder, self).__init__()
 
         self.hidden_dim = hidden_dim
 
@@ -54,7 +54,7 @@ class Three_Attention_Encoder(nn.Module):
         after_part = lstm_out[1:]
 
         before_attention_out = self.attention_layer(after_part, before_part, before_part)
-        after_attention_out = self.attention_layer(before_part, after_part, after_part)
+        # after_attention_out = self.attention_layer(before_part, after_part, after_part)
 
         size_a, size_b = lstm_out.shape[1:]
         zero_append = torch.zeros(1, size_a, size_b)
@@ -62,9 +62,10 @@ class Three_Attention_Encoder(nn.Module):
             zero_append = zero_append.cuda()
 
         before_attention_out = torch.cat([before_attention_out, zero_append])
-        after_attention_out = torch.cat([zero_append, after_attention_out])
+        # after_attention_out = torch.cat([zero_append, after_attention_out])
 
-        attention_cat = torch.cat([before_attention_out, self_attention_out, after_attention_out], 2)
+        # attention_cat = torch.cat([before_attention_out, self_attention_out, after_attention_out], 2)
+        attention_cat = torch.cat([before_attention_out, self_attention_out], 2)
 
         # projector_out = self.projector(attention_cat)
 
@@ -76,19 +77,19 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout):
         super(BiLSTM_Atention_BiLSTM, self).__init__()
 
-        self.sentence_encoder = Three_Attention_Encoder(embedding_dim=embedding_dim,
+        self.sentence_encoder = Multi_Attention_Encoder(embedding_dim=embedding_dim,
                                                         hidden_dim=hidden_dim,
                                                         vocab_size=vocab_size,
                                                         word_vec_matrix=word_vec_matrix)
 
-        sentence_encoder_dim = 2*embedding_dim*3
+        sentence_encoder_dim = 2*embedding_dim*2
 
-        self.sent_lstm = nn.LSTM(input_size=sentence_encoder_dim, hidden_size=hidden_dim*3, bidirectional=True, batch_first=True)
+        self.sent_lstm = nn.LSTM(input_size=sentence_encoder_dim, hidden_size=hidden_dim*2, bidirectional=True, batch_first=True)
 
         # self.attention_layer = ScaledDotProductAttention_Batch(model_dim=2*embedding_dim)
 
         self.classifier = nn.Sequential(
-            nn.Linear(2 * hidden_dim * 3, fc_dim),
+            nn.Linear(2 * hidden_dim * 2, fc_dim),
             nn.Dropout(dropout),
             nn.ReLU(),
             nn.Linear(fc_dim, fc_dim),
