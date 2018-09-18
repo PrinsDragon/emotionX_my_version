@@ -183,9 +183,18 @@ def save_word_id(save_dir):
 
     print("Finish Save Word ID !")
 
+def save_name_id(save_dir):
+    print("Start Save Name ID ...")
+    save_file = open(save_dir, "w", encoding="utf-8")
+
+    for name in speaker_names:
+        name_id = speaker_names[name]
+        save_file.write("{} {}\n".format(name_id, name))
+
+    print("Finish Save Name ID !")
 
 if __name__ == '__main__':
-    GloVe_dir = r"D:\Documents\Python_Project\WordVector_Folder\glove.840B.300d.txt"
+    GloVe_dir = r"C:\Users\WangZilong\Documents\Python_Project\_Data_Files\glove.840B.300d.txt"
     DataSet = "Merge"
     DataSet_Tag = ["train", "test", "dev"]
 
@@ -215,3 +224,4 @@ if __name__ == '__main__':
 
     build_word_vec("./{}_Proc/{}_word_vec.txt".format(DataSet, DataSet.lower()), GloVe_dir)
     save_word_id("./{}_Proc/{}_word_id.txt".format(DataSet, DataSet.lower()))
+    save_name_id("./{}_Proc/{}_name_id.txt".format(DataSet, DataSet.lower()))

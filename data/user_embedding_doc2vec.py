@@ -6,6 +6,13 @@ import csv
 import json
 import gensim
 
+speaker_id_dict = {}
+speaker_id_file_path = ""
+speaker_id_file = open(speaker_id_file_path, "r")
+for line in speaker_id_file:
+    name_id, name = line.split(' ', 1)
+    speaker_id_dict[name] = name_id
+
 def generate_user_paragragh(input_file_path, output_file_path):
     input_file = open(input_file_path, "r")
     json_data = json.load(input_file)
@@ -14,18 +21,19 @@ def generate_user_paragragh(input_file_path, output_file_path):
     for dialog in json_data:
         for sentence in dialog:
             speaker = sentence["speaker"]
+            speaker_id = speaker_id_dict[speaker]
             utterance = sentence["utterance"]
 
-            if speaker in data_dict:
-                data_dict[speaker] = data_dict[speaker] + utterance + " <END> "
+            if speaker_id in data_dict:
+                data_dict[speaker_id] = data_dict[speaker_id] + utterance + " <END> "
             else:
-                data_dict[speaker] = utterance + " <END> "
+                data_dict[speaker_id] = utterance + " <END> "
 
     output_file = open(output_file_path)
     writer = csv.writer(output_file, quoting=csv.QUOTE_ALL)
 
-    for speaker in data_dict:
-        line = [speaker, data_dict[speaker]]
+    for speaker_id in data_dict:
+        line = [speaker_id, data_dict[speaker_id]]
         writer.writerow(line)
 
 
