@@ -1,6 +1,7 @@
 *.json
 *.txt
-.idea
-checkpoints
+*.idea
+checkpoints/
 *.pyc
-data
+data/
+__pycache__/
