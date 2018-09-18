@@ -97,6 +97,20 @@ def build_word_vec_matrix(word_vec_dir):
     print("Finish!")
     return word_num, word_vec_matrix
 
+def read_user_embedding(file_path):
+    file = open(file_path, "r")
+    ret = {}
+    for line in file:
+        speaker, vector = line.split(" ", 1)
+        speaker = int(speaker)
+
+        vector = vector[1:-1]
+        vector = list(map(float, vector.split(",")))
+
+        ret[speaker] = vector
+
+    return ret
+
 class Sentence:
     def __init__(self, name, seq, label):
         self.name = name
@@ -206,57 +220,6 @@ model = BiLSTM_Atention_BiLSTM(embedding_dim=embedding_dim,
                                tagset_size=target_size,
                                word_vec_matrix=word_vec_matrix,
                                dropout=dropout_rate)
-
-# model = TransformerEncoder_BiLSTM(encoder_vocab_size=vocab_size,
-#                                   encoder_sentence_length=max(train_dataset.max_sentence_length,
-#                                                               dev_dataset.max_sentence_length,
-#                                                               test_dataset.max_sentence_length),
-#                                   encoder_layer_num=6,
-#                                   encoder_head_num=8,
-#                                   encoder_k_dim=64,
-#                                   encoder_v_dim=64,
-#                                   encoder_word_vec_dim=300,
-#                                   encoder_model_dim=300,
-#                                   encoder_inner_hid_dim=1024,
-#                                   word_vec_matrix=word_vec_matrix,
-#                                   sent_hidden_dim=hidden_dim,
-#                                   sent_fc_dim=fc_dim,
-#                                   sent_dropout=dropout_rate,
-#                                   tagset_size=target_size)
-
-# (self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout,
-#                  paragraph_length, layer_num, head_num, k_dim, v_dim, input_vec_dim, model_dim, inner_hid_dim):
-
-# model = BiLSTM_TransformerEncoder(embedding_dim=embedding_dim,
-#                                   hidden_dim=hidden_dim,
-#                                   fc_dim=fc_dim,
-#                                   vocab_size=vocab_size,
-#                                   tagset_size=target_size,
-#                                   word_vec_matrix=word_vec_matrix,
-#                                   dropout=dropout_rate,
-# 
-#                                   paragraph_length=batch_size,
-#                                   layer_num=1,
-#                                   head_num=8,
-#                                   k_dim=64,
-#                                   v_dim=64,
-#                                   input_vec_dim=2*embedding_dim,
-#                                   model_dim=600,
-#                                   inner_hid_dim=1024)
-
-# self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout,
-#                  model_dim, max_paragraph_len):
-
-# model = BiLSTM_Attention(embedding_dim=embedding_dim,
-#                          hidden_dim=hidden_dim,
-#                          fc_dim=fc_dim,
-#                          vocab_size=vocab_size,
-#                          tagset_size=target_size,
-#                          word_vec_matrix=word_vec_matrix,
-#                          dropout=dropout_rate,
-#                          max_paragraph_len=max(train_dataset.max_paragraph_length,
-#                                                dev_dataset.max_paragraph_length,
-#                                                test_dataset.max_paragraph_length))
 
 if GPU:
     model.cuda()
