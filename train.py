@@ -405,6 +405,7 @@ print("friends_dev_dataset: ", friends_dev_dataset.emotion_num)
 print("emotionpush_dev_dataset: ", emotionpush_dev_dataset.emotion_num)
 
 max_dev_average_acc = [0, 0]
+max_dev_average_acc_test = [0, 0]
 max_dev_average_acc_model_state = [model.state_dict(), model.state_dict()]
 
 max_test_average_acc = [0, 0]
@@ -431,15 +432,6 @@ for epoch in range(epoch_num):
                                      total_loss=total_loss, total_acc=total_acc,
                                      acc=dev_acc, dataset=dev_dataset[dataset_index])
 
-        if train_average_acc > 0.9:
-            if dev_average_acc > max_dev_average_acc[dataset_index]:
-                max_dev_average_acc[dataset_index] = dev_average_acc
-                max_dev_average_acc_model_state[dataset_index] = copy.deepcopy(model.state_dict())
-                print("### new max dev acc!\n")
-            else:
-                print("Dev_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_dev_average_acc[dataset_index]))
-
-        # tmp check test set
         # test_acc, total_acc, total_loss = eval(loader=test_loader[dataset_index], loss_func=loss_func)
         test_acc, total_acc, total_loss = eval(loader=test_dataset[dataset_index].get_paragraph(), loss_func=loss_func)
         test_average_acc = print_info(sign="Test_{}".format(dataset_index),
@@ -447,6 +439,15 @@ for epoch in range(epoch_num):
                                       acc=test_acc, dataset=test_dataset[dataset_index])
 
         if train_average_acc > 0.9:
+            if dev_average_acc > max_dev_average_acc[dataset_index]:
+                max_dev_average_acc[dataset_index] = dev_average_acc
+                max_dev_average_acc_test[dataset_index] = test_average_acc
+                max_dev_average_acc_model_state[dataset_index] = copy.deepcopy(model.state_dict())
+                print("### new max dev acc!\n")
+            else:
+                print("Dev_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_dev_average_acc[dataset_index]))
+                print("Dev_{}: Which Test Acc: {:.6f}\n".format(dataset_index, max_dev_average_acc_test[dataset_index]))
+
             if test_average_acc > max_test_average_acc[dataset_index]:
                 max_test_average_acc[dataset_index] = test_average_acc
                 max_test_average_acc_model_state[dataset_index] = copy.deepcopy(model.state_dict())
