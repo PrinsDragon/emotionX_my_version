@@ -64,7 +64,7 @@ def doc2vec(input_csv_path, kind):
     docs = [data[i][1] for i in range(speaker_num)]
     it = LabeledLineSentence(docs, doc_labels)
 
-    model = gensim.models.Doc2Vec(vector_size=300, window=10, min_count=5, workers=11, alpha=0.025, min_alpha=0.025)
+    model = gensim.models.Doc2Vec(vector_size=100, window=10, min_count=5, workers=11, alpha=0.025, min_alpha=0.025)
     model.build_vocab(it)
     for epoch in range(50):
         print("{} Epoch: {}".format(kind, epoch))

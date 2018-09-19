@@ -138,7 +138,7 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
                                                         vocab_size=vocab_size,
                                                         word_vec_matrix=word_vec_matrix)
 
-        speaker_embedding_dim = 300
+        speaker_embedding_dim = 100
         sentence_encoder_dim = 2*embedding_dim*2 + speaker_embedding_dim
 
         self.sent_lstm = nn.LSTM(input_size=sentence_encoder_dim, hidden_size=hidden_dim*2, bidirectional=True, batch_first=True)
