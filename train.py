@@ -24,7 +24,7 @@ from Sentence_Attention_Encoder import BiLSTM_Atention_BiLSTM
 # from Attention_Net import BiLSTM_Attention
 
 GPU = torch.cuda.is_available()
-SERVER = True
+SERVER = False
 
 # parameters
 mode = 4
@@ -39,7 +39,7 @@ target_size = 8
 dropout_rate = 0.8
 
 if SERVER:
-    TAG = "epoc={}_{}".format(epoch_num, "Bilstm+2xAttention+bilstm+qa")
+    TAG = "epoc={}_{}".format(epoch_num, "Bilstm+Doc2Vec+2xAttention+bilstm+qa")
     TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
     save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)
@@ -96,20 +96,6 @@ def build_word_vec_matrix(word_vec_dir):
     print("Total {} words in vec".format(word_in_vec))
     print("Finish!")
     return word_num, word_vec_matrix
-
-def read_user_embedding(file_path):
-    file = open(file_path, "r")
-    ret = {}
-    for line in file:
-        speaker, vector = line.split(" ", 1)
-        speaker = int(speaker)
-
-        vector = vector[1:-1]
-        vector = list(map(float, vector.split(",")))
-
-        ret[speaker] = vector
-
-    return ret
 
 class Sentence:
     def __init__(self, name, seq, label):
@@ -181,13 +167,14 @@ class EmotionDataSet(Dataset):
     def get_paragraph(self):
         for para in self.paragraphs:
             para_tensor = para[0].seq.view(1, -1)
+            speaker = [sent.name for sent in para]
             sentence_lengths = torch.tensor([sent.seq_len for sent in para])
             sentence_labels = torch.tensor([sent.label for sent in para])
             for i in range(1, len(para)):
                 seq_tensor = para[i].seq.view(1, -1)
                 para_tensor = torch.cat([para_tensor, seq_tensor], 0)
 
-            yield para_tensor, sentence_lengths, sentence_labels
+            yield para_tensor, sentence_lengths, sentence_labels, speaker
 
 # Load
 train_dataset = EmotionDataSet(data_dir=train_dir)
@@ -243,7 +230,7 @@ def train(loader, optimizer, loss_func):
 
     train_acc = {i: 0. for i in range(target_size)}
     total_loss = 0.
-    for batch_times, (word_seq, seq_len, label) in enumerate(loader):
+    for batch_times, (word_seq, seq_len, label, speaker) in enumerate(loader):
         if batch_times % 100 == 0:
             print("Sentences: ", batch_times * batch_size)
 
@@ -254,7 +241,7 @@ def train(loader, optimizer, loss_func):
 
         targets = label
 
-        sentence_encoder_out, tag_scores = model.forward((word_seq, seq_len))
+        sentence_encoder_out, tag_scores = model.forward((word_seq, seq_len, speaker, "train"))
 
         pred = torch.max(tag_scores, 1)[1]
 
@@ -305,12 +292,12 @@ def train(loader, optimizer, loss_func):
 
     return train_acc, total_acc, total_loss
 
-def eval(loader, loss_func, save_flag=False):
+def eval(loader, loss_func, tag, save_flag=False):
     model.eval()
 
     acc = {i: 0. for i in range(target_size)}
     total_loss = 0.
-    for word_seq, seq_len, label in loader:
+    for word_seq, seq_len, label, speaker in loader:
         if GPU:
             word_seq = word_seq.cuda()
             seq_len = seq_len.cuda()
@@ -318,7 +305,7 @@ def eval(loader, loss_func, save_flag=False):
 
         targets = label
 
-        _, tag_scores = model.forward((word_seq, seq_len))
+        _, tag_scores = model.forward((word_seq, seq_len, speaker, tag))
 
         pred = torch.max(tag_scores, 1)[1]
 
@@ -374,6 +361,8 @@ max_dev_average_acc_model_state = [model.state_dict(), model.state_dict()]
 max_test_average_acc = [0, 0]
 max_test_average_acc_model_state = [model.state_dict(), model.state_dict()]
 
+dataset_name = ["friends", "emotionpush"]
+
 for epoch in range(epoch_num):
     print("==================================")
     print("epoch: {}".format(epoch))
@@ -390,13 +379,15 @@ for epoch in range(epoch_num):
     for dataset_index in range(2):
         print("----------------------------------")
         # dev_acc, total_acc, total_loss = eval(loader=dev_loader[dataset_index], loss_func=loss_func)
-        dev_acc, total_acc, total_loss = eval(loader=dev_dataset[dataset_index].get_paragraph(), loss_func=loss_func)
+        dev_acc, total_acc, total_loss = eval(loader=dev_dataset[dataset_index].get_paragraph(),
+                                              loss_func=loss_func, tag="{}_dev".format(dataset_name[dataset_index]))
         dev_average_acc = print_info(sign="Dev_{}".format(dataset_index),
                                      total_loss=total_loss, total_acc=total_acc,
                                      acc=dev_acc, dataset=dev_dataset[dataset_index])
 
         # test_acc, total_acc, total_loss = eval(loader=test_loader[dataset_index], loss_func=loss_func)
-        test_acc, total_acc, total_loss = eval(loader=test_dataset[dataset_index].get_paragraph(), loss_func=loss_func)
+        test_acc, total_acc, total_loss = eval(loader=test_dataset[dataset_index].get_paragraph(),
+                                               loss_func=loss_func, tag="{}_test".format(dataset_name[dataset_index]))
         test_average_acc = print_info(sign="Test_{}".format(dataset_index),
                                       total_loss=total_loss, total_acc=total_acc,
                                       acc=test_acc, dataset=test_dataset[dataset_index])
@@ -429,7 +420,8 @@ for index in range(2):
     model.eval()
 
     # test_acc, total_acc, total_loss = eval(loader=test_loader[index], loss_func=loss_func)
-    test_acc, total_acc, total_loss = eval(loader=test_dataset[index].get_paragraph(), loss_func=loss_func, save_flag=True)
+    test_acc, total_acc, total_loss = eval(loader=test_dataset[index].get_paragraph(),
+                                           loss_func=loss_func, save_flag=True, tag="{}_test".format(dataset_name[index]))
 
     test_average_acc[index] = print_info(sign="Test_{}".format(index), total_loss=total_loss,
                                          total_acc=total_acc, acc=test_acc, dataset=test_dataset[index])
