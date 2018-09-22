@@ -29,7 +29,7 @@ SERVER = False
 # parameters
 mode = 4
 
-epoch_num = 100
+epoch_num = 50
 embedding_dim = 300
 hidden_dim = 300
 fc_dim = 128
@@ -39,7 +39,7 @@ target_size = 8
 dropout_rate = 0.8
 
 if SERVER:
-    TAG = "epoc={}_{}".format(epoch_num, "Bilstm+Doc2Vec+2xAttention+bilstm+qa")
+    TAG = "epoc={}_{}".format(epoch_num, "Bilstm+2xAttention+bilstm+qa")
     TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
 
     save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)
@@ -120,7 +120,7 @@ class EmotionDataSet(Dataset):
         self.paragraphs = []
         self.max_sentence_length = 0
         self.max_paragraph_length = 0
-        self.emotion_num = {i : 0 for i in range(target_size)}
+        self.emotion_num = {i: 0 for i in range(target_size)}
 
         for i in range(0, len(data)):
             para = []

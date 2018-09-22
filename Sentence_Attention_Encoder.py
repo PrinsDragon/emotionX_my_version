@@ -8,33 +8,33 @@ from Attention_Net import ScaledDotProductAttention_Batch
 
 GPU = True
 
-train_user_embedding_dir = "./data/Merge_Proc/user_embedding/merge_user_embedding_train.txt"
-friends_dev_user_embedding_dir = "./data/Merge_Proc/user_embedding/merge_user_embedding_friends_dev.txt"
-friends_test_user_embedding_dir = "./data/Merge_Proc/user_embedding/merge_user_embedding_friends_test.txt"
-emotionpush_dev_user_embedding_dir = "./data/Merge_Proc/user_embedding/merge_user_embedding_emotionpush_dev.txt"
-emotionpush_test_user_embedding_dir = "./data/Merge_Proc/user_embedding/merge_user_embedding_emotionpush_test.txt"
-
-def read_user_embedding(file_path):
-    file = open(file_path, "r")
-    ret = {}
-    for line in file:
-        speaker, vector = line.split(" ", 1)
-        speaker = int(speaker)
-
-        vector = vector.replace(" ", "")
-        vector = vector.replace("[", "")
-        vector = vector.replace("]", "")
-        vector = list(map(float, vector.split(",")))
-
-        ret[speaker] = vector
-
-    return ret
-
-train_user_embedding = read_user_embedding(train_user_embedding_dir)
-friends_dev_user_embedding = read_user_embedding(friends_dev_user_embedding_dir)
-friends_test_user_embedding = read_user_embedding(friends_test_user_embedding_dir)
-emotionpush_dev_user_embedding = read_user_embedding(emotionpush_dev_user_embedding_dir)
-emotionpush_test_user_embedding = read_user_embedding(emotionpush_test_user_embedding_dir)
+# train_user_embedding_dir = "./data/Merge_Proc/user_embedding/merge_user_embedding_train.txt"
+# friends_dev_user_embedding_dir = "./data/Merge_Proc/user_embedding/merge_user_embedding_friends_dev.txt"
+# friends_test_user_embedding_dir = "./data/Merge_Proc/user_embedding/merge_user_embedding_friends_test.txt"
+# emotionpush_dev_user_embedding_dir = "./data/Merge_Proc/user_embedding/merge_user_embedding_emotionpush_dev.txt"
+# emotionpush_test_user_embedding_dir = "./data/Merge_Proc/user_embedding/merge_user_embedding_emotionpush_test.txt"
+#
+# def read_user_embedding(file_path):
+#     file = open(file_path, "r")
+#     ret = {}
+#     for line in file:
+#         speaker, vector = line.split(" ", 1)
+#         speaker = int(speaker)
+#
+#         vector = vector.replace(" ", "")
+#         vector = vector.replace("[", "")
+#         vector = vector.replace("]", "")
+#         vector = list(map(float, vector.split(",")))
+#
+#         ret[speaker] = vector
+#
+#     return ret
+#
+# train_user_embedding = read_user_embedding(train_user_embedding_dir)
+# friends_dev_user_embedding = read_user_embedding(friends_dev_user_embedding_dir)
+# friends_test_user_embedding = read_user_embedding(friends_test_user_embedding_dir)
+# emotionpush_dev_user_embedding = read_user_embedding(emotionpush_dev_user_embedding_dir)
+# emotionpush_test_user_embedding = read_user_embedding(emotionpush_test_user_embedding_dir)
 
 class Multi_Attention_Encoder(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, vocab_size, word_vec_matrix):
@@ -58,17 +58,17 @@ class Multi_Attention_Encoder(nn.Module):
         speakers = sentence_tuple[2]
         tag = sentence_tuple[3]
 
-        speaker_embedding = ""
-        if tag == "train":
-            speaker_embedding = train_user_embedding
-        elif tag == "friends_dev":
-            speaker_embedding = friends_dev_user_embedding
-        elif tag == "friends_test":
-            speaker_embedding = friends_test_user_embedding
-        elif tag == "emotionpush_dev":
-            speaker_embedding = emotionpush_dev_user_embedding
-        elif tag == "emotionpush_test":
-            speaker_embedding = emotionpush_test_user_embedding
+        # speaker_embedding = ""
+        # if tag == "train":
+        #     speaker_embedding = train_user_embedding
+        # elif tag == "friends_dev":
+        #     speaker_embedding = friends_dev_user_embedding
+        # elif tag == "friends_test":
+        #     speaker_embedding = friends_test_user_embedding
+        # elif tag == "emotionpush_dev":
+        #     speaker_embedding = emotionpush_dev_user_embedding
+        # elif tag == "emotionpush_test":
+        #     speaker_embedding = emotionpush_test_user_embedding
 
         # eliminate extra zeros
         max_len = int(sentence_length_list.max())
@@ -112,22 +112,24 @@ class Multi_Attention_Encoder(nn.Module):
 
         max_pooling_out = torch.max(attention_cat, 1)[0]
 
-        # user embedding part
-        speaker = speakers[0]
-        vector_list = speaker_embedding[speaker]
-        vector_tensors = torch.Tensor(vector_list).view(1, -1)
-        for i in range(1, len(speakers)):
-            speaker = speakers[i]
-            vector_list = speaker_embedding[speaker]
-            vector_tensor = torch.Tensor(vector_list).view(1, -1)
-            vector_tensors = torch.cat([vector_tensors, vector_tensor])
+        return max_pooling_out
 
-        if GPU:
-            vector_tensors = vector_tensors.cuda()
-
-        speaker_embedding_cat = torch.cat([vector_tensors, max_pooling_out], 1)
-
-        return speaker_embedding_cat
+        # # user embedding part
+        # speaker = speakers[0]
+        # vector_list = speaker_embedding[speaker]
+        # vector_tensors = torch.Tensor(vector_list).view(1, -1)
+        # for i in range(1, len(speakers)):
+        #     speaker = speakers[i]
+        #     vector_list = speaker_embedding[speaker]
+        #     vector_tensor = torch.Tensor(vector_list).view(1, -1)
+        #     vector_tensors = torch.cat([vector_tensors, vector_tensor])
+        #
+        # if GPU:
+        #     vector_tensors = vector_tensors.cuda()
+        #
+        # speaker_embedding_cat = torch.cat([vector_tensors, max_pooling_out], 1)
+        #
+        # return speaker_embedding_cat
 
 class BiLSTM_Atention_BiLSTM(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, fc_dim, vocab_size, tagset_size, word_vec_matrix, dropout):
@@ -138,7 +140,7 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
                                                         vocab_size=vocab_size,
                                                         word_vec_matrix=word_vec_matrix)
 
-        speaker_embedding_dim = 100
+        speaker_embedding_dim = 0  # 100
         sentence_encoder_dim = 2*embedding_dim*2 + speaker_embedding_dim
 
         self.sent_lstm = nn.LSTM(input_size=sentence_encoder_dim, hidden_size=hidden_dim*2, bidirectional=True, batch_first=True)
