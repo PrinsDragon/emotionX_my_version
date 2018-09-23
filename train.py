@@ -397,15 +397,16 @@ for epoch in range(epoch_num):
                 max_dev_average_acc[dataset_index] = dev_average_acc
                 max_dev_average_acc_test[dataset_index] = test_average_acc
                 max_dev_average_acc_model_state[dataset_index] = copy.deepcopy(model.state_dict())
-                print("### new max dev acc!\n")
+                print("Dev_{}: ### new max dev acc!".format(dataset_index))
             else:
-                print("Dev_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_dev_average_acc[dataset_index]))
-                print("Dev_{}: Which Test Acc: {:.6f}\n".format(dataset_index, max_dev_average_acc_test[dataset_index]))
+                print("Dev_{}: Now Max Acc: {:.6f} which Test Acc: {:.6f}".format(dataset_index,
+                                                                                  max_dev_average_acc[dataset_index],
+                                                                                  max_dev_average_acc_test[dataset_index]))
 
             if test_average_acc > max_test_average_acc[dataset_index]:
                 max_test_average_acc[dataset_index] = test_average_acc
                 max_test_average_acc_model_state[dataset_index] = copy.deepcopy(model.state_dict())
-                print("### new max test acc!\n")
+                print("Test_{}: ### new max test acc!\n".format(dataset_index))
             else:
                 print("Test_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_test_average_acc[dataset_index]))
 
