@@ -96,20 +96,20 @@ class Multi_Attention_Encoder(nn.Module):
         before_part = lstm_out[:-1]
         after_part = lstm_out[1:]
 
-        # before_attention_out = self.attention_layer(after_part, before_part, before_part)
-        after_attention_out = self.attention_layer(before_part, after_part, after_part)
+        before_attention_out = self.attention_layer(after_part, before_part, before_part)
+        # after_attention_out = self.attention_layer(before_part, after_part, after_part)
 
         size_a, size_b = lstm_out.shape[1:]
         zero_append = torch.zeros(1, size_a, size_b)
         if GPU:
             zero_append = zero_append.cuda()
 
-        # before_attention_out = torch.cat([before_attention_out, zero_append])
-        after_attention_out = torch.cat([zero_append, after_attention_out])
+        before_attention_out = torch.cat([before_attention_out, zero_append])
+        # after_attention_out = torch.cat([zero_append, after_attention_out])
 
         # attention_cat = torch.cat([before_attention_out, self_attention_out, after_attention_out], 2)
-        # attention_cat = torch.cat([before_attention_out, self_attention_out], 2)
-        attention_cat = torch.cat([after_attention_out, self_attention_out], 2)
+        attention_cat = torch.cat([before_attention_out, self_attention_out], 2)
+        # attention_cat = torch.cat([after_attention_out, self_attention_out], 2)
 
         max_pooling_out = torch.max(attention_cat, 1)[0]
 
