@@ -1,4 +1,4 @@
-#coding=utf-8
+# coding=utf-8
 
 import json
 import random
@@ -6,6 +6,7 @@ import time
 import os
 import copy
 import sys
+import platform
 
 from data.word_id_helper import read_word_id, ori_sentence
 
@@ -25,6 +26,7 @@ from Sentence_Attention_Encoder import BiLSTM_Atention_BiLSTM
 
 GPU = torch.cuda.is_available()
 TO_FILE = True
+SYS = platform.system()
 
 # parameters
 mode = 4
@@ -40,6 +42,9 @@ dropout_rate = 0.8
 
 TAG = "epoc={}_{}".format(epoch_num, "Bilstm+2xAttention+Bilstm+qa")
 TIME = time.strftime('%Y.%m.%d-%H.%M.%S', time.localtime(time.time()))
+
+if SYS == "Linux":
+    TIME = time.strftime('%Y.%m.%d-%H:%M:%S', time.localtime(time.time()))
 
 save_dir = "./checkpoints/{}_{}/".format(TIME, TAG)
 
@@ -73,6 +78,7 @@ emotionpush_test_dir = "./data/Merge_Proc/merge_seq_emotionpush_test.json"
 word_vector_dir = "./data/Merge_Proc/merge_word_vec.txt"
 word_id_dir = "./data/Merge_Proc/merge_word_id.txt"
 
+
 # Data
 
 def build_word_vec_matrix(word_vec_dir):
@@ -84,7 +90,7 @@ def build_word_vec_matrix(word_vec_dir):
     word_vec_file = open(word_vec_dir, "r", encoding="utf-8")
     for i, line in enumerate(word_vec_file):
         if i == 0:
-            word_num = int(line)+1
+            word_num = int(line) + 1
             word_vec_matrix = 0.5 * np.random.random_sample((word_num, embedding_dim)) - 0.25
             word_vec_matrix[0] = 0
             # np.zeros((word_num, embedding_dim))
@@ -102,6 +108,7 @@ def build_word_vec_matrix(word_vec_dir):
     print("Finish!")
     return word_num, word_vec_matrix
 
+
 class Sentence:
     def __init__(self, name, seq, label):
         self.name = name
@@ -109,12 +116,13 @@ class Sentence:
         self.seq_len = len(seq)
         self.label = label
 
-        self.pos_seq = torch.tensor([i for i in range(1, self.seq_len+1)])
+        self.pos_seq = torch.tensor([i for i in range(1, self.seq_len + 1)])
 
     def extend(self, total_length):
-        tmp = torch.zeros(total_length-self.seq_len).long()
+        tmp = torch.zeros(total_length - self.seq_len).long()
         self.seq = torch.cat([self.seq, tmp], 0)
         self.pos_seq = torch.cat([self.pos_seq, tmp], 0)
+
 
 class EmotionDataSet(Dataset):
     def __init__(self, data_dir):
@@ -181,6 +189,7 @@ class EmotionDataSet(Dataset):
 
             yield para_tensor, sentence_lengths, sentence_labels, speaker
 
+
 # Load
 train_dataset = EmotionDataSet(data_dir=train_dir)
 train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
@@ -188,7 +197,8 @@ train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=
 friends_dev_dataset = EmotionDataSet(data_dir=friends_dev_dir)
 friends_dev_loader = DataLoader(dataset=friends_dev_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
 emotionpush_dev_dataset = EmotionDataSet(data_dir=emotionpush_dev_dir)
-emotionpush_dev_loader = DataLoader(dataset=emotionpush_dev_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
+emotionpush_dev_loader = DataLoader(dataset=emotionpush_dev_dataset, batch_size=batch_size, shuffle=False,
+                                    drop_last=False)
 
 dev_dataset = [friends_dev_dataset, emotionpush_dev_dataset]
 dev_loader = [friends_dev_loader, emotionpush_dev_loader]
@@ -196,7 +206,8 @@ dev_loader = [friends_dev_loader, emotionpush_dev_loader]
 friends_test_dataset = EmotionDataSet(data_dir=friends_test_dir)
 friends_test_loader = DataLoader(dataset=friends_test_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
 emotionpush_test_dataset = EmotionDataSet(data_dir=emotionpush_test_dir)
-emotionpush_test_loader = DataLoader(dataset=emotionpush_test_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
+emotionpush_test_loader = DataLoader(dataset=emotionpush_test_dataset, batch_size=batch_size, shuffle=False,
+                                     drop_last=False)
 
 test_dataset = [friends_test_dataset, emotionpush_test_dataset]
 test_loader = [friends_test_loader, emotionpush_test_loader]
@@ -227,9 +238,9 @@ if GPU:
 for i in range(mode):
     weight[i] = 100. / train_dataset.emotion_num[i]
 
-
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 loss_func = nn.CrossEntropyLoss(weight=weight, reduce=True, size_average=True)
+
 
 def train(loader, optimizer, loss_func):
     model.train()
@@ -298,6 +309,7 @@ def train(loader, optimizer, loss_func):
 
     return train_acc, total_acc, total_loss
 
+
 def eval(loader, loss_func, tag, save_flag=False):
     model.eval()
 
@@ -320,13 +332,15 @@ def eval(loader, loss_func, tag, save_flag=False):
                 acc[int(targets[i])] += 1
             else:
                 if save_flag and targets[i] < 4:
-                    save_mistake_sent.write("pred: {}/{}  {}".format(pred[i], targets[i], ori_sentence(word_seq[i], word_id_dict)))
+                    save_mistake_sent.write(
+                        "pred: {}/{}  {}".format(pred[i], targets[i], ori_sentence(word_seq[i], word_id_dict)))
 
         total_loss += loss_func(tag_scores, targets)
 
     total_acc = sum(acc[i] for i in range(mode))
 
     return acc, total_acc, total_loss
+
 
 def print_info(sign, total_loss, total_acc, acc, dataset):
     dataset_size = sum(dataset.emotion_num[i] for i in range(mode))
@@ -354,6 +368,7 @@ def print_info(sign, total_loss, total_acc, acc, dataset):
 
     return average_acc
 
+
 # train & dev
 print("**********************************")
 print("train_dataset: ", train_dataset.emotion_num)
@@ -376,8 +391,10 @@ for epoch in range(epoch_num):
     # train
     model.train()
     # train_acc, total_acc, total_loss = train(loader=train_loader, loss_func=loss_func, optimizer=optimizer)
-    train_acc, total_acc, total_loss = train(loader=train_dataset.get_paragraph(), loss_func=loss_func, optimizer=optimizer)
-    train_average_acc = print_info(sign="Train", total_loss=total_loss, total_acc=total_acc, acc=train_acc, dataset=train_dataset)
+    train_acc, total_acc, total_loss = train(loader=train_dataset.get_paragraph(), loss_func=loss_func,
+                                             optimizer=optimizer)
+    train_average_acc = print_info(sign="Train", total_loss=total_loss, total_acc=total_acc, acc=train_acc,
+                                   dataset=train_dataset)
 
     # dev
     model.eval()
@@ -407,7 +424,8 @@ for epoch in range(epoch_num):
             else:
                 print("Dev_{}: Now Max Acc: {:.6f} which Test Acc: {:.6f}".format(dataset_index,
                                                                                   max_dev_average_acc[dataset_index],
-                                                                                  max_dev_average_acc_test[dataset_index]))
+                                                                                  max_dev_average_acc_test[
+                                                                                      dataset_index]))
 
             if test_average_acc > max_test_average_acc[dataset_index]:
                 max_test_average_acc[dataset_index] = test_average_acc
@@ -430,19 +448,20 @@ for index in range(2):
 
     # test_acc, total_acc, total_loss = eval(loader=test_loader[index], loss_func=loss_func)
     test_acc, total_acc, total_loss = eval(loader=test_dataset[index].get_paragraph(),
-                                           loss_func=loss_func, save_flag=True, tag="{}_test".format(dataset_name[index]))
+                                           loss_func=loss_func, save_flag=True,
+                                           tag="{}_test".format(dataset_name[index]))
 
     test_average_acc[index] = print_info(sign="Test_{}".format(index), total_loss=total_loss,
                                          total_acc=total_acc, acc=test_acc, dataset=test_dataset[index])
 
 # save
-torch.save(max_dev_average_acc_model_state[0], save_dir+"friends_max_dev_average_acc_model.pkl")
-torch.save(max_dev_average_acc_model_state[1], save_dir+"emotionpush_max_dev_average_acc_model.pkl")
+torch.save(max_dev_average_acc_model_state[0], save_dir + "friends_max_dev_average_acc_model.pkl")
+torch.save(max_dev_average_acc_model_state[1], save_dir + "emotionpush_max_dev_average_acc_model.pkl")
 
-torch.save(max_test_average_acc_model_state[0], save_dir+"friends_max_test_average_acc_model.pkl")
-torch.save(max_test_average_acc_model_state[1], save_dir+"emotionpush_max_test_average_acc_model.pkl")
+torch.save(max_test_average_acc_model_state[0], save_dir + "friends_max_test_average_acc_model.pkl")
+torch.save(max_test_average_acc_model_state[1], save_dir + "emotionpush_max_test_average_acc_model.pkl")
 
-TIME_END = time.strftime('%Y.%m.%d-%H.%M.%S', time.localtime(time.time()))
+TIME_END = time.strftime('%Y.%m.%d-%H:%M:%S', time.localtime(time.time()))
 print(TIME_END)
 
 sys.stdout.flush()
