@@ -24,7 +24,7 @@ from Sentence_Attention_Encoder import BiLSTM_Atention_BiLSTM
 # from Attention_Net import BiLSTM_Attention
 
 GPU = torch.cuda.is_available()
-SERVER = False
+TO_FILE = True
 
 # parameters
 mode = 4
@@ -38,22 +38,27 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-if SERVER:
-    TAG = "epoc={}_{}".format(epoch_num, "Bilstm+2xAttention+bilstm+qa")
-    TIME = time.strftime('%Y.%m.%d-%H:%M', time.localtime(time.time()))
+TAG = "epoc={}_{}".format(epoch_num, "Bilstm+2xAttention+Bilstm+qa")
+TIME = time.strftime('%Y.%m.%d-%H.%M.%S', time.localtime(time.time()))
 
-    save_dir = "./checkpoints/{}_checkpoint_{}/".format(TIME, TAG)
+save_dir = "./checkpoints/{}_{}/".format(TIME, TAG)
 
+print("GPU available:", GPU)
+print(TAG)
+print(TIME)
+
+if TO_FILE:
     try:
         os.makedirs(save_dir)
     except:
         pass
 
-    save_mistake_sent = open(save_dir + "mistake_sent_{}.vstxt".format(TAG), "w", encoding="utf-8")
-    save_out = open(save_dir + "out_{}.vstxt".format(TAG), "w", encoding="utf-8")
+    save_mistake_sent = open(save_dir + "mistake_sent.vstxt", "w", encoding="utf-8")
+    save_out = open(save_dir + "out.vstxt", "w", encoding="utf-8")
+
     sys.stdout = save_out
 
-    print("GPU available: ", GPU)
+    print("GPU available:", GPU)
     print(TAG)
     print(TIME)
 
@@ -212,6 +217,7 @@ if GPU:
     model.cuda()
 
 print(model)
+sys.stdout.flush()
 
 weight = torch.Tensor(target_size).float().fill_(0.)
 
@@ -410,6 +416,8 @@ for epoch in range(epoch_num):
             else:
                 print("Test_{}: Now Max Acc: {:.6f}\n".format(dataset_index, max_test_average_acc[dataset_index]))
 
+    sys.stdout.flush()
+
 # test_eval
 test_average_acc = [0., 0.]
 for index in range(2):
@@ -433,3 +441,8 @@ torch.save(max_dev_average_acc_model_state[1], save_dir+"emotionpush_max_dev_ave
 
 torch.save(max_test_average_acc_model_state[0], save_dir+"friends_max_test_average_acc_model.pkl")
 torch.save(max_test_average_acc_model_state[1], save_dir+"emotionpush_max_test_average_acc_model.pkl")
+
+TIME_END = time.strftime('%Y.%m.%d-%H.%M.%S', time.localtime(time.time()))
+print(TIME_END)
+
+sys.stdout.flush()
