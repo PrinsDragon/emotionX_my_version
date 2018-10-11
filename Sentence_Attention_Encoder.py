@@ -221,7 +221,7 @@ class BiLSTM_Atention_BiLSTM(nn.Module):
                 if j != i and j != i+1:
                     false_sent = sentence_encoder_out[j]
                     false_score = self.question_answer_score(sent, false_sent)
-                    sent_loss.append(F.relu(1 + true_score - false_score))
+                    sent_loss.append(F.relu(1 - true_score + false_score))
 
             sent_loss_sum = sum(sent_loss)
             sent_loss_mean = sent_loss_sum / len(sent_loss)
