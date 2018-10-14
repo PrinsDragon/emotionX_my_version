@@ -40,7 +40,7 @@ gradient_max_norm = 5
 target_size = 8
 dropout_rate = 0.8
 
-TAG = "epoc={}_{}".format(epoch_num, "Bilstm+2xAttention+Bilstm+qa")
+TAG = "epoc={}_{}".format(epoch_num, "BAB-QA-before+self")
 TIME = time.strftime('%Y.%m.%d-%H.%M.%S', time.localtime(time.time()))
 
 if SYS == "Linux":
